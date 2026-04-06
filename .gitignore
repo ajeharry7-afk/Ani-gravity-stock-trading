@@ -1,0 +1,12 @@
+node_modules
+package-lock.json
+.env
+.DS_Store
+users.json
+.env.local
+.env.production
+.env.development
+.env.test
+.env.example
+.env.local.example
+.env.production.example
