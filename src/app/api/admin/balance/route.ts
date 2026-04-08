@@ -20,12 +20,13 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
+  const emailLower = userEmail.toLowerCase();
 
   // Fetch current balance
   const { data: userRow, error: fetchErr } = await supabase
     .from('users')
     .select('account_balance')
-    .eq('email', userEmail.toLowerCase())
+    .eq('email', emailLower)
     .single();
 
   if (fetchErr || !userRow) {
@@ -45,15 +46,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid adjustment type' }, { status: 400 });
   }
 
-  // Update balance
-  const { error: updateErr } = await supabase
+  // Atomic update — only applies if account_balance hasn't changed since we read it
+  const { data: updated, error: updateErr } = await supabase
     .from('users')
     .update({ account_balance: newBalance })
-    .eq('email', userEmail.toLowerCase());
+    .eq('email', emailLower)
+    .eq('account_balance', prevBalance)
+    .select('account_balance')
+    .single();
 
   if (updateErr) {
     console.error('Balance update error:', updateErr);
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  }
+  if (!updated) {
+    // Balance changed between read and update — reject to prevent overwrite
+    return NextResponse.json({ error: 'Balance was modified concurrently. Please try again.' }, { status: 409 });
   }
 
   // Write audit record

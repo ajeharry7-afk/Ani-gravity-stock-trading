@@ -39,6 +39,9 @@ export async function POST(request: Request) {
   }
 
   const emailLower = email.toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+    return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+  }
   const supabase = getSupabaseAdmin();
 
   // Check if email is already taken

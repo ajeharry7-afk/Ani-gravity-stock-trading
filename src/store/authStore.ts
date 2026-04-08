@@ -344,7 +344,7 @@ export const useAuthStore = create<AuthState>()(
           notifications: [
             {
               ...notification,
-              id: Math.random().toString(36).substr(2, 9),
+              id: crypto.randomUUID(),
               date: new Date(),
               read: false,
             },
@@ -359,19 +359,8 @@ export const useAuthStore = create<AuthState>()(
         }));
       },
 
-      login: async (email: string, password: string, _rememberMe?: boolean) => {
-        // Keep login method for backward compatibility or simple login bypass in UI
-        const emailLower = email.toLowerCase();
-        
-        const storedUser = get().registeredUsers[emailLower];
-        if (storedUser && storedUser.password === password) {
-          set({
-            user: storedUser.user,
-            isAuthenticated: true,
-            holdings: []
-          });
-          return true;
-        }
+      login: async (_email: string, _password: string, _rememberMe?: boolean) => {
+        // Deprecated — authentication is handled by requestLoginOTP + verifyLoginOTP
         return false;
       },
 
@@ -768,14 +757,20 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'antigravity-auth',
-      partialize: (state) => ({ 
-        user: state.user, 
-        isAuthenticated: state.isAuthenticated, 
-        holdings: state.holdings, 
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        holdings: state.holdings,
         marketListings: state.marketListings,
         pendingPurchase: state.pendingPurchase,
-        notifications: state.notifications,
-        registeredUsers: state.registeredUsers
+        // Notifications are session-only — not persisted to avoid stale data
+        // Passwords stripped from registeredUsers before persisting
+        registeredUsers: Object.fromEntries(
+          Object.entries(state.registeredUsers).map(([email, val]) => [
+            email,
+            { ...val, password: '' },
+          ])
+        ),
       }),
     }
   )

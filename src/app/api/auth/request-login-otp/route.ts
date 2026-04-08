@@ -37,6 +37,9 @@ export async function POST(request: Request) {
   }
 
   const emailLower = email.toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+    return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+  }
   const supabase = getSupabaseAdmin();
 
   // Validate credentials against Supabase — same flow for all users including admin
@@ -59,7 +62,7 @@ export async function POST(request: Request) {
   }
   const passwordMatch = await bcrypt.compare(password, userRow.password);
   if (!passwordMatch) {
-    console.error('Password mismatch for:', emailLower, '| stored hash prefix:', userRow.password?.slice(0, 10));
+    console.error('Password mismatch for:', emailLower);
     return NextResponse.json({ error: 'Invalid email or password. Please try again.' }, { status: 401 });
   }
 

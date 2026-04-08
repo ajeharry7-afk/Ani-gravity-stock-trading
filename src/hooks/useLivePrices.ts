@@ -21,8 +21,8 @@ export function useLivePrices() {
         if (!res.ok) return;
         const prices: { symbol: string; price: number }[] = await res.json();
         prices.forEach(({ symbol, price }) => updatePrice(symbol, price));
-      } catch {
-        // Non-critical — stale prices are acceptable
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') console.error('Price fetch error:', err);
       }
     };
 

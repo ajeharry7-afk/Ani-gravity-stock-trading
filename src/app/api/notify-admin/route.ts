@@ -22,6 +22,9 @@ async function sendEmailViaSMTP(toEmail: string, subject: string, htmlContent: s
   });
 }
 
+const escHtml = (s: string) =>
+  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 const paymentMethodLabels: Record<string, string> = {
   wire: 'Wire Transfer',
   ach: 'ACH Payment',
@@ -42,19 +45,19 @@ export async function POST(request: Request) {
         <h2>New Payment Alert</h2>
       </div>
       <div style="padding: 20px;">
-        <p><strong>User:</strong> ${userEmail}</p>
-        <p><strong>Stock:</strong> ${purchase.symbol} (${purchase.companyName})</p>
-        <p><strong>Shares:</strong> ${purchase.shares}</p>
+        <p><strong>User:</strong> ${escHtml(userEmail)}</p>
+        <p><strong>Stock:</strong> ${escHtml(purchase.symbol)} (${escHtml(purchase.companyName)})</p>
+        <p><strong>Shares:</strong> ${escHtml(String(purchase.shares))}</p>
         <p><strong>Price per share:</strong> $${Number(purchase.pricePerShare).toFixed(2)}</p>
         <p><strong>Total amount:</strong> $${Number(purchase.totalCost).toFixed(2)}</p>
-        <p><strong>Payment method:</strong> ${paymentMethodLabels[paymentMethod] ?? paymentMethod}</p>
-        <p><strong>Ownership:</strong> ${purchase.ownershipType}${purchase.jointHolderName ? ` (with ${purchase.jointHolderName})` : ''}</p>
+        <p><strong>Payment method:</strong> ${escHtml(paymentMethodLabels[paymentMethod] ?? paymentMethod)}</p>
+        <p><strong>Ownership:</strong> ${escHtml(purchase.ownershipType)}${purchase.jointHolderName ? ` (with ${escHtml(purchase.jointHolderName)})` : ''}</p>
       </div>
     </div>
   `;
 
   try {
-    const adminEmail = process.env.SMTP_USER || 'patriciakalcik@gmail.com';
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.SMTP_USER || '';
     await sendEmailViaSMTP(
       adminEmail,
       `New Stock Purchase Order - ${purchase.symbol} by ${userEmail}`,

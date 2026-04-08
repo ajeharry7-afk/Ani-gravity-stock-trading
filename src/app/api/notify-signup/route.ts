@@ -22,6 +22,9 @@ async function sendEmailViaSMTP(toEmail: string, subject: string, htmlContent: s
   });
 }
 
+const escHtml = (s: string) =>
+  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 export async function POST(request: Request) {
   const { name, email, kycData } = await request.json();
 
@@ -31,9 +34,9 @@ export async function POST(request: Request) {
 
   const rawSsn: string = kycData?.ssn || '';
   const ssnDisplay = rawSsn.length >= 4 ? `***-**-${rawSsn.slice(-4)}` : '****';
-  const dob = kycData?.dob || 'N/A';
-  const address = kycData?.address || 'N/A';
-  const phone = kycData?.phone || 'N/A';
+  const dob = escHtml(kycData?.dob || 'N/A');
+  const address = escHtml(kycData?.address || 'N/A');
+  const phone = escHtml(kycData?.phone || 'N/A');
 
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
@@ -42,11 +45,11 @@ export async function POST(request: Request) {
       </div>
       <div style="padding: 20px;">
         <h3 style="color: #0f172a; margin-top: 0;">Account Details</h3>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Name:</strong> ${escHtml(name)}</p>
+        <p><strong>Email:</strong> ${escHtml(email)}</p>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
         <h3 style="color: #0f172a;">KYC Verification Data</h3>
-        <p><strong>SSN:</strong> ${ssnDisplay}</p>
+        <p><strong>SSN:</strong> ${escHtml(ssnDisplay)}</p>
         <p><strong>Date of Birth:</strong> ${dob}</p>
         <p><strong>House Address:</strong> ${address}</p>
         <p><strong>Mobile Number:</strong> ${phone}</p>
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
   `;
 
   try {
-    const adminEmail = process.env.SMTP_USER || 'patriciakalcik@gmail.com';
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.SMTP_USER || '';
     await sendEmailViaSMTP(adminEmail, `New User Sign Up - ${name}`, htmlBody);
     return NextResponse.json({ success: true, message: 'Admin notified!' });
   } catch (error) {
