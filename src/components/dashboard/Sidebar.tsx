@@ -54,8 +54,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:sticky top-16 left-0 z-50 w-64 h-[calc(100vh-4rem)] bg-[#0C121A] border-r border-[#16202D] transition-transform duration-300 lg:translate-x-0 relative overflow-hidden",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed lg:sticky top-16 left-0 z-50 w-64 shrink-0 h-[calc(100vh-4rem)] bg-[#0C121A] border-r border-[#16202D] transition-transform duration-300 lg:translate-x-0 overflow-hidden",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800/10 to-transparent pointer-events-none"></div>

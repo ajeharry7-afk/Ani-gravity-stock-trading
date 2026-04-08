@@ -418,19 +418,19 @@ export function AdminDashboardView() {
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-400 bg-[#0C121A] uppercase tracking-wider">
                     <tr>
-                      <th className="px-6 py-4 font-medium">User</th>
-                      <th className="px-6 py-4 font-medium">Email</th>
-                      <th className="px-6 py-4 font-medium">Portfolio</th>
-                      <th className="px-6 py-4 font-medium">Cash</th>
-                      <th className="px-6 py-4 font-medium">Joined</th>
-                      <th className="px-6 py-4 font-medium">Status</th>
-                      <th className="px-6 py-4 font-medium text-right">Actions</th>
+                      <th className="px-3 sm:px-6 py-4 font-medium">User</th>
+                      <th className="px-3 sm:px-6 py-4 font-medium">Email</th>
+                      <th className="px-3 sm:px-6 py-4 font-medium">Portfolio</th>
+                      <th className="px-3 sm:px-6 py-4 font-medium">Cash</th>
+                      <th className="px-3 sm:px-6 py-4 font-medium">Joined</th>
+                      <th className="px-3 sm:px-6 py-4 font-medium">Status</th>
+                      <th className="px-3 sm:px-3 sm:px-6 py-4 font-medium text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
+                        <td colSpan={7} className="px-3 sm:px-6 py-12 text-center">
                           <div className="flex flex-col items-center gap-3">
                             <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                             <span className="text-sm text-slate-400 animate-pulse">Loading users...</span>
@@ -439,7 +439,7 @@ export function AdminDashboardView() {
                       </tr>
                     ) : filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                        <td colSpan={7} className="px-3 sm:px-6 py-12 text-center text-slate-400">
                           <Users className="w-12 h-12 text-slate-600 mx-auto mb-3 opacity-50" />
                           <p>No users found.</p>
                         </td>
@@ -450,7 +450,7 @@ export function AdminDashboardView() {
                         const pendingOrders = u.holdings?.filter((h: any) => h.status === 'processing').length || 0;
                         return (
                           <tr key={i} className="hover:bg-[#121A25] transition-colors group">
-                            <td className="px-6 py-4">
+                            <td className="px-3 sm:px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg ${u.blocked ? 'bg-red-600/50' : 'bg-gradient-to-br from-emerald-500 to-cyan-500'}`}>
                                   {(u.name || '?').charAt(0).toUpperCase()}
@@ -466,17 +466,17 @@ export function AdminDashboardView() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-slate-300">{u.email}</td>
-                            <td className="px-6 py-4">
+                            <td className="px-3 sm:px-6 py-4 text-slate-300">{u.email}</td>
+                            <td className="px-3 sm:px-6 py-4">
                               <span className="text-cyan-400 font-mono font-medium">{formatCurrency(portfolioVal)}</span>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-3 sm:px-6 py-4">
                               <span className="text-emerald-400 font-mono font-medium">{formatCurrency(u.account_balance || 0)}</span>
                             </td>
-                            <td className="px-6 py-4 text-slate-400 text-xs">
+                            <td className="px-3 sm:px-6 py-4 text-slate-400 text-xs">
                               {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Recently'}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-3 sm:px-6 py-4">
                               <Badge
                                 variant="outline"
                                 className={u.blocked
@@ -489,7 +489,7 @@ export function AdminDashboardView() {
                                 {u.blocked ? 'Blocked' : u.two_factor_enabled ? 'Secure' : 'Standard'}
                               </Badge>
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-3 sm:px-6 py-4 text-right">
                               <button
                                 onClick={() => handleManageClick(u)}
                                 className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 hover:text-white hover:bg-emerald-600 hover:border-emerald-500 transition-all font-medium"
@@ -520,22 +520,22 @@ export function AdminDashboardView() {
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-400 bg-[#0C121A] uppercase tracking-wider">
                     <tr>
-                      <th className="px-6 py-4">Symbol</th>
-                      <th className="px-6 py-4">Company</th>
-                      <th className="px-6 py-4">Current Price</th>
-                      <th className="px-6 py-4">Set New Price</th>
-                      <th className="px-6 py-4 text-right">Action</th>
+                      <th className="px-3 sm:px-6 py-4">Symbol</th>
+                      <th className="px-3 sm:px-6 py-4">Company</th>
+                      <th className="px-3 sm:px-6 py-4">Current Price</th>
+                      <th className="px-3 sm:px-6 py-4">Set New Price</th>
+                      <th className="px-3 sm:px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {marketListings.map((stock) => (
                       <tr key={stock.symbol} className="hover:bg-[#121A25] transition-colors">
-                        <td className="px-6 py-3">
+                        <td className="px-3 sm:px-6 py-3">
                           <span className="font-bold text-white font-mono">{stock.symbol}</span>
                         </td>
-                        <td className="px-6 py-3 text-slate-300">{stock.companyName}</td>
-                        <td className="px-6 py-3 text-emerald-400 font-mono">${stock.currentPrice.toFixed(2)}</td>
-                        <td className="px-6 py-3 w-40">
+                        <td className="px-3 sm:px-6 py-3 text-slate-300">{stock.companyName}</td>
+                        <td className="px-3 sm:px-6 py-3 text-emerald-400 font-mono">${stock.currentPrice.toFixed(2)}</td>
+                        <td className="px-3 sm:px-6 py-3 w-40">
                           <Input
                             type="number"
                             placeholder={stock.currentPrice.toFixed(2)}
@@ -544,7 +544,7 @@ export function AdminDashboardView() {
                             className="bg-slate-900 border-slate-700 text-white h-8 text-sm font-mono focus-visible:ring-emerald-500/50"
                           />
                         </td>
-                        <td className="px-6 py-3 text-right">
+                        <td className="px-3 sm:px-6 py-3 text-right">
                           {savedPrices[stock.symbol] ? (
                             <span className="flex items-center justify-end gap-1 text-emerald-400 text-xs">
                               <CheckCircle className="w-3.5 h-3.5" /> Saved

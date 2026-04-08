@@ -241,7 +241,7 @@ export function MarketView() {
           setJointHolderName('');
         }
       }}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white w-[calc(100vw-2rem)] max-w-md">
           <DialogHeader>
             <DialogTitle className="text-white text-xl">Purchase {purchaseDialog.stock?.symbol}</DialogTitle>
             <DialogDescription className="text-slate-400">

@@ -113,7 +113,7 @@ export function ProfileView() {
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="max-w-xs bg-slate-900/50 border-slate-600 text-white"
+                    className="w-full sm:max-w-xs bg-slate-900/50 border-slate-600 text-white"
                   />
                   <Button size="icon" onClick={handleSaveName} className="bg-emerald-500 hover:bg-emerald-600">
                     <Check className="w-4 h-4" />
@@ -276,14 +276,14 @@ export function ProfileView() {
                   placeholder="Current password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="max-w-xs bg-slate-800 border-slate-600 text-white"
+                  className="w-full sm:max-w-xs bg-slate-800 border-slate-600 text-white"
                 />
                 <Input
                   type="password"
                   placeholder="New password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="max-w-xs bg-slate-800 border-slate-600 text-white"
+                  className="w-full sm:max-w-xs bg-slate-800 border-slate-600 text-white"
                 />
                 {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
                 <div className="flex gap-3">

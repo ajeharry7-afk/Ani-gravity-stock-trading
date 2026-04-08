@@ -156,7 +156,7 @@ export function DashboardView() {
             <CardTitle className="text-white">Portfolio Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[250px] sm:h-[300px]">
               {!hasHoldings ? (
                 <div className="flex items-center justify-center h-full text-slate-500 text-sm">
                   No holdings yet — buy your first stock to see performance.
