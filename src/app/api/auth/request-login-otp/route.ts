@@ -46,7 +46,12 @@ export async function POST(request: Request) {
     .eq('email', emailLower)
     .single();
 
-  if (error || !userRow) {
+  if (error) {
+    console.error('Supabase user lookup error:', JSON.stringify(error));
+    return NextResponse.json({ error: 'Invalid email or password. Please try again.' }, { status: 401 });
+  }
+  if (!userRow) {
+    console.error('No user row found for:', emailLower);
     return NextResponse.json({ error: 'Invalid email or password. Please try again.' }, { status: 401 });
   }
   if (userRow.blocked) {
@@ -54,6 +59,7 @@ export async function POST(request: Request) {
   }
   const passwordMatch = await bcrypt.compare(password, userRow.password);
   if (!passwordMatch) {
+    console.error('Password mismatch for:', emailLower, '| stored hash prefix:', userRow.password?.slice(0, 10));
     return NextResponse.json({ error: 'Invalid email or password. Please try again.' }, { status: 401 });
   }
 
