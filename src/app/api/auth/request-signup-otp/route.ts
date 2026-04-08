@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomInt, createHash } from 'crypto';
 import nodemailer from 'nodemailer';
+import bcrypt from 'bcryptjs';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 async function sendOTPEmail(toEmail: string, otp: string) {
@@ -51,19 +52,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 });
   }
 
+  // Hash password before storing — never store plain text in otp_tokens
+  const passwordHash = await bcrypt.hash(password, 12);
+
   // Generate OTP
   const otp = String(randomInt(100000, 999999));
   const otpHash = createHash('sha256').update(otp).digest('hex');
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  // Store token with pending signup data
+  // Store token with pending signup data (password already hashed)
   const { error: upsertErr } = await supabase.from('otp_tokens').upsert(
     {
       email: emailLower,
       type: 'signup',
       otp_hash: otpHash,
       expires_at: expiresAt,
-      data: { name, password, kycData },
+      data: { name, passwordHash, kycData },
     },
     { onConflict: 'email,type' }
   );

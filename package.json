@@ -37,6 +37,7 @@
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/supabase-js": "^2.102.1",
+    "bcryptjs": "^3.0.3",
     "caniuse-lite": "^1.0.30001579",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -64,6 +65,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.2.5",

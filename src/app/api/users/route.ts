@@ -35,13 +35,13 @@ export async function POST(request: Request) {
 
   const { holdings, ...userData } = body;
 
-  // Upsert user record
+  // Upsert user record — password is intentionally excluded here.
+  // Passwords are set only at signup (verify-signup-otp) and changed via /api/auth/update-password.
   const { error: userError } = await supabaseAdmin
     .from('users')
     .upsert({
       email,
       name: userData.name || userData.user?.name,
-      password: userData.password,
       account_balance: userData.accountBalance ?? undefined,
       two_factor_enabled: userData.twoFactorEnabled ?? userData.user?.twoFactorEnabled ?? false,
       kyc_data: userData.kycData ?? null,

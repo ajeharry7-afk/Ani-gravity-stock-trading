@@ -42,8 +42,10 @@ export function ProfileView() {
   const [email, setEmail] = useState(user?.email || '');
 
   const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   const handleSaveName = () => {
     updateUser({ name });
@@ -55,14 +57,22 @@ export function ProfileView() {
     setIsEditingEmail(false);
   };
 
-  const handleSavePassword = () => {
-    if (password.trim() !== '') {
-      updatePassword(password);
+  const handleSavePassword = async () => {
+    setPasswordError('');
+    if (!currentPassword.trim() || !password.trim()) {
+      setPasswordError('Please fill in both fields.');
+      return;
+    }
+    const result = await updatePassword(currentPassword, password);
+    if (result.success) {
       setPasswordSaved(true);
       setTimeout(() => setPasswordSaved(false), 3000);
+      setCurrentPassword('');
+      setPassword('');
+      setIsEditingPassword(false);
+    } else {
+      setPasswordError(result.error || 'Failed to update password.');
     }
-    setPassword('');
-    setIsEditingPassword(false);
   };
 
   const handleDeleteAccount = () => {
@@ -260,7 +270,14 @@ export function ProfileView() {
               )}
             </div>
             {isEditingPassword && (
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 space-y-3">
+                <Input
+                  type="password"
+                  placeholder="Current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="max-w-xs bg-slate-800 border-slate-600 text-white"
+                />
                 <Input
                   type="password"
                   placeholder="New password"
@@ -268,8 +285,11 @@ export function ProfileView() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="max-w-xs bg-slate-800 border-slate-600 text-white"
                 />
-                <Button onClick={handleSavePassword} className="bg-emerald-500 hover:bg-emerald-600 text-white">Save</Button>
-                <Button variant="ghost" onClick={() => { setPassword(''); setIsEditingPassword(false); }} className="text-slate-400 hover:text-white">Cancel</Button>
+                {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
+                <div className="flex gap-3">
+                  <Button onClick={handleSavePassword} className="bg-emerald-500 hover:bg-emerald-600 text-white">Save</Button>
+                  <Button variant="ghost" onClick={() => { setCurrentPassword(''); setPassword(''); setPasswordError(''); setIsEditingPassword(false); }} className="text-slate-400 hover:text-white">Cancel</Button>
+                </div>
               </div>
             )}
             {passwordSaved && (

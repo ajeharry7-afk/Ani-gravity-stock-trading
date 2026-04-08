@@ -26,13 +26,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid or expired verification code.' }, { status: 401 });
   }
 
-  const { name, password, kycData } = token.data as { name: string; password: string; kycData: any };
+  const { name, passwordHash, kycData } = token.data as { name: string; passwordHash: string; kycData: any };
 
-  // Create user in Supabase
+  // Create user in Supabase with hashed password
   const { error: insertErr } = await supabase.from('users').insert({
     email: emailLower,
     name,
-    password,
+    password: passwordHash,
     kyc_data: kycData ?? null,
     account_balance: 0,
   });

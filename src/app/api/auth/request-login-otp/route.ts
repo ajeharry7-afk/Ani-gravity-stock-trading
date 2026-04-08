@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomInt, createHash } from 'crypto';
 import nodemailer from 'nodemailer';
+import bcrypt from 'bcryptjs';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 async function sendOTPEmail(toEmail: string, otp: string) {
@@ -51,7 +52,8 @@ export async function POST(request: Request) {
   if (userRow.blocked) {
     return NextResponse.json({ error: 'Your account has been suspended. Please contact support.' }, { status: 403 });
   }
-  if (userRow.password !== password) {
+  const passwordMatch = await bcrypt.compare(password, userRow.password);
+  if (!passwordMatch) {
     return NextResponse.json({ error: 'Invalid email or password. Please try again.' }, { status: 401 });
   }
 

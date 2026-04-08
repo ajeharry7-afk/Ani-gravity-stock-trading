@@ -42,7 +42,7 @@ interface AuthState {
   markNotificationsAsRead: () => void;
   updateMarketAndHoldingPrice: (symbol: string, newPrice: number) => void;
   updateUser: (updates: Partial<User>) => void;
-  updatePassword: (newPass: string) => void;
+  updatePassword: (currentPass: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
   toggle2FA: () => void;
   sendSignupNotification: (name: string, email: string, kycData?: any) => Promise<void>;
 }
@@ -305,20 +305,21 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      updatePassword: (newPass) => {
-        set((state) => {
-          if (!state.user) return state;
-          const emailLower = state.user.email.toLowerCase();
-          if (state.registeredUsers[emailLower]) {
-            const updatedUsers = {
-              ...state.registeredUsers,
-              [emailLower]: { ...state.registeredUsers[emailLower], password: newPass }
-            };
-            syncUserToSupabase(emailLower, updatedUsers[emailLower]);
-            return { registeredUsers: updatedUsers };
-          }
-          return state;
-        });
+      updatePassword: async (currentPass, newPass) => {
+        const email = get().user?.email;
+        if (!email) return { success: false, error: 'Not logged in' };
+        try {
+          const res = await fetch('/api/auth/update-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.toLowerCase(), currentPassword: currentPass, newPassword: newPass }),
+          });
+          const data = await res.json();
+          if (!res.ok) return { success: false, error: data.error || 'Failed to update password' };
+          return { success: true };
+        } catch {
+          return { success: false, error: 'Network error. Please try again.' };
+        }
       },
 
       toggle2FA: () => {
