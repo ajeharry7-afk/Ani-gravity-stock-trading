@@ -28,10 +28,8 @@ export function LoginForm() {
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('antigravity_email') || '';
-    const savedPassword = localStorage.getItem('antigravity_password') || '';
     if (savedEmail) {
       setEmail(savedEmail);
-      setPassword(savedPassword);
       setRememberMe(true);
     }
   }, []);
@@ -55,11 +53,10 @@ export function LoginForm() {
 
     if (rememberMe) {
       localStorage.setItem('antigravity_email', email);
-      localStorage.setItem('antigravity_password', password);
     } else {
       localStorage.removeItem('antigravity_email');
-      localStorage.removeItem('antigravity_password');
     }
+    // Never persist password in localStorage
 
     const errorMsg = await requestLoginOTP(email, password, rememberMe);
     if (errorMsg) {
@@ -253,11 +250,6 @@ export function LoginForm() {
                   </p>
                 </div>
                 
-                <div className="mt-8 pt-4 border-t border-slate-700/50">
-                  <p className="text-xs text-center text-slate-500">
-                    Demo credentials: any email/password will work.
-                  </p>
-                </div>
               </form>
             ) : (
               <form onSubmit={handleVerifyOTP} className="space-y-6">

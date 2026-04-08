@@ -25,6 +25,8 @@ export async function GET(
   return NextResponse.json(data);
 }
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ email: string }> }
@@ -33,6 +35,13 @@ export async function PATCH(
   const { email } = await params;
   const decodedEmail = decodeURIComponent(email).toLowerCase();
   const body = await request.json();
+
+  // Admin-only fields require admin identity
+  const adminOnlyFields = ['blocked', 'kycData', 'accountBalance'];
+  const touchesAdminField = adminOnlyFields.some((f) => body[f] !== undefined);
+  if (touchesAdminField && body.adminEmail?.toLowerCase() !== ADMIN_EMAIL) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) updates.name = body.name;

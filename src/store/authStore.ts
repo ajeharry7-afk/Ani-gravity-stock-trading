@@ -14,16 +14,6 @@ const syncUserToSupabase = async (email: string, userData: any) => {
   }
 };
 
-// Fetch user record from Supabase and merge into local state
-const fetchUserFromSupabase = async (email: string) => {
-  try {
-    const res = await fetch(`/api/users/${encodeURIComponent(email.toLowerCase())}`);
-    if (res.ok) return await res.json();
-  } catch {
-    // server not reachable — silently fall through
-  }
-  return null;
-};
 
 interface AuthState {
   user: User | null;
@@ -54,7 +44,7 @@ interface AuthState {
   updateUser: (updates: Partial<User>) => void;
   updatePassword: (newPass: string) => void;
   toggle2FA: () => void;
-  sendSignupNotification: (name: string, email: string, password: string, kycData?: any) => Promise<void>;
+  sendSignupNotification: (name: string, email: string, kycData?: any) => Promise<void>;
 }
 
 // Market listings - stocks available for purchase
@@ -271,49 +261,7 @@ const marketListingsData: MarketListing[] = [
   },
 ];
 
-// Removed in-memory globals. Using persisted state.registeredUsers instead.
-
-// Store for OTPs
-const pendingOTPs: { [email: string]: { otp: string; expiresAt: number; data?: any; type: 'login' | 'signup' } } = {};
-
-function generateOTP() {
-  // In development, we can test with a known OTP or log it
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  return otp;
-}
-
-async function sendOTPEmail(email: string, otp: string) {
-  // We gracefully use the dynamic hostname so it works when testing from a phone or another device!
-  try {
-    const response = await fetch(`/api/send-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`✅ Real email triggered perfectly via local server to ${email}`);
-      if (result.previewUrl) {
-        console.log(`Ethereal URL: ${result.previewUrl}`);
-        alert(`API TESTING: A universal email was sent!\n\nView your OTP Email here:\n${result.previewUrl}`);
-      }
-      return;
-    } else {
-      console.warn(`⚠️ The local server returned an error:`, await response.text());
-    }
-  } catch (error) {
-    console.warn(`🕒 Local server not running yet on port 3001. Check terminal.`);
-  }
-
-  // NOTE: If the server isn't running or encounters an error, we keep this fallback console log
-  // so you can still read the OTP from the browser dev console and continue logging in!
-  console.log(`\n=== LOCAL DEV MOCK EMAIL ===`);
-  console.log(`To: ${email}`);
-  console.log(`Subject: Your Verification Code`);
-  console.log(`Body: Your Antigravity verification code is: ${otp}`);
-  console.log(`=============================\n`);
-}
+// OTP generation and verification are handled server-side via /api/auth/* routes.
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -426,85 +374,45 @@ export const useAuthStore = create<AuthState>()(
         return false;
       },
 
-      requestLoginOTP: async (email: string, password: string, rememberMe?: boolean) => {
-        await new Promise((resolve) => setTimeout(resolve, 800));
+      requestLoginOTP: async (email: string, password: string, _rememberMe?: boolean) => {
         const emailLower = email.toLowerCase();
-
-        let storedUser = get().registeredUsers[emailLower];
-
-        // ADMIN — always use the fixed password from env, never from localStorage
-        const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
-        const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'AntigravityAdmin2024!';
-        if (emailLower === adminEmail) {
-          if (password !== adminPassword) return 'Invalid email or password. Please try again.';
-          const adminUser = {
-            password: adminPassword,
-            user: storedUser?.user ?? {
-              id: 'admin-001',
-              email: emailLower,
-              name: 'System Administrator',
-              createdAt: new Date(),
-            }
-          };
-          set((state) => ({
-            registeredUsers: { ...state.registeredUsers, [emailLower]: adminUser }
-          }));
-          storedUser = adminUser;
-        } else {
-          // Check if user is blocked in Supabase
-          const serverRecord = await fetchUserFromSupabase(emailLower);
-          if (serverRecord?.blocked) {
-            return 'Your account has been suspended. Please contact support.';
-          }
-        }
-
-        if (storedUser && storedUser.password === password) {
-          const otp = generateOTP();
-          pendingOTPs[emailLower] = {
-            otp,
-            expiresAt: Date.now() + 10 * 60 * 1000,
-            type: 'login',
-            data: { user: storedUser.user, password, rememberMe, storedUser }
-          };
-          await sendOTPEmail(emailLower, otp);
+        try {
+          const res = await fetch('/api/auth/request-login-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailLower, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) return data.error || 'Login failed. Please try again.';
           return null; // null = success
+        } catch {
+          return 'Network error. Please check your connection.';
         }
-        return 'Invalid email or password. Please try again.';
       },
 
       verifyLoginOTP: async (email: string, otp: string) => {
-        await new Promise((resolve) => setTimeout(resolve, 600));
         const emailLower = email.toLowerCase();
-        const pending = pendingOTPs[emailLower];
-
-        if (pending && pending.type === 'login' && pending.otp === otp && pending.expiresAt > Date.now()) {
-          const { user } = pending.data;
-
-          // Fetch server record to restore holdings + admin-set balance
-          const serverRecord = await fetchUserFromSupabase(emailLower);
-          const serverHoldings: StockHolding[] = serverRecord?.holdings?.map((h: any) => ({
-            id: h.id,
-            symbol: h.symbol,
-            companyName: h.company_name,
-            shares: h.shares,
-            purchasePrice: h.purchase_price,
-            currentPrice: h.current_price,
-            ownershipType: h.ownership_type,
-            jointHolderName: h.joint_holder_name ?? undefined,
-            purchaseDate: new Date(h.purchase_date),
-            status: h.status,
-          })) ?? [];
-
-          const mergedUser: User = {
-            ...user,
-            accountBalance: serverRecord?.account_balance ?? user.accountBalance,
-          };
-
-          set({
-            user: mergedUser,
-            isAuthenticated: true,
-            holdings: serverHoldings,
+        try {
+          const res = await fetch('/api/auth/verify-login-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailLower, otp }),
           });
+          if (!res.ok) return false;
+
+          const { user, holdings: rawHoldings } = await res.json();
+
+          const holdings: StockHolding[] = (rawHoldings ?? []).map((h: any) => ({
+            ...h,
+            purchaseDate: new Date(h.purchaseDate),
+          }));
+
+          set((state) => ({
+            user,
+            isAuthenticated: true,
+            holdings,
+            registeredUsers: { ...state.registeredUsers, [emailLower]: { password: '', user } },
+          }));
 
           // Fetch server-side notifications (e.g. admin balance updates)
           try {
@@ -520,23 +428,20 @@ export const useAuthStore = create<AuthState>()(
                 read: false,
               }));
               if (mapped.length > 0) {
-                set((state) => ({
-                  notifications: [...mapped, ...state.notifications],
-                }));
+                set((state) => ({ notifications: [...mapped, ...state.notifications] }));
               }
             }
           } catch {
-            // Server notifications are non-critical
+            // non-critical
           }
 
-          // Welcome notification
           get().addNotification({
             title: 'Welcome Back!',
             message: `Successfully logged in as ${user.name}.`,
             type: 'success',
           });
 
-          // Apply any admin-set market price overrides
+          // Apply admin-set market price overrides
           try {
             const priceRes = await fetch('/api/market-prices');
             if (priceRes.ok) {
@@ -549,116 +454,88 @@ export const useAuthStore = create<AuthState>()(
             // non-critical
           }
 
-          delete pendingOTPs[emailLower];
           return true;
+        } catch {
+          return false;
         }
-        return false;
       },
 
       signup: async (email: string, password: string, name: string) => {
-        // Keeping this for backward compatibility if needed
+        // Legacy — kept for backward compatibility; real signup uses requestSignupOTP
         const emailLower = email.toLowerCase();
-        if (get().registeredUsers[emailLower]) {
-          return false;
-        }
-
-        const newUser: User = {
-          id: Math.random().toString(36).substr(2, 9),
-          email: emailLower,
-          name,
-          createdAt: new Date(),
-        };
-
+        if (get().registeredUsers[emailLower]) return false;
+        const newUser: User = { id: emailLower, email: emailLower, name, createdAt: new Date() };
         set((state) => ({
           registeredUsers: { ...state.registeredUsers, [emailLower]: { password, user: newUser } },
           user: newUser,
           isAuthenticated: true,
-          holdings: []
+          holdings: [],
         }));
         return true;
       },
 
       requestSignupOTP: async (email: string, password: string, name: string, kycData: any = null) => {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        
         const emailLower = email.toLowerCase();
-        if (get().registeredUsers[emailLower]) {
-          return false; // User already exists
+        try {
+          const res = await fetch('/api/auth/request-signup-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailLower, password, name, kycData }),
+          });
+          if (res.status === 409) return false; // email already taken
+          return res.ok;
+        } catch {
+          return false;
         }
-
-        const otp = generateOTP();
-        pendingOTPs[emailLower] = {
-          otp,
-          expiresAt: Date.now() + 10 * 60 * 1000,
-          type: 'signup',
-          data: { name, password, kycData }
-        };
-        
-        await sendOTPEmail(emailLower, otp);
-        return true;
       },
 
       verifySignupOTP: async (email: string, otp: string) => {
-        await new Promise((resolve) => setTimeout(resolve, 600));
         const emailLower = email.toLowerCase();
-        const pending = pendingOTPs[emailLower];
-
-        if (pending && pending.type === 'signup' && pending.otp === otp && pending.expiresAt > Date.now()) {
-          const { name, password, kycData } = pending.data;
-          
-          const newUser: User = {
-            id: Math.random().toString(36).substr(2, 9),
-            email: emailLower,
-            name,
-            createdAt: new Date(),
-          };
-
-          set((state) => {
-            const newState = {
-              registeredUsers: { ...state.registeredUsers, [emailLower]: { password, user: newUser, kycData } },
-              user: newUser,
-              isAuthenticated: true,
-              holdings: []
-            };
-            syncUserToSupabase(emailLower, { ...newState.registeredUsers[emailLower] });
-            return newState;
+        try {
+          const res = await fetch('/api/auth/verify-signup-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailLower, otp }),
           });
-          
+          if (!res.ok) return false;
+
+          const { user } = await res.json();
+
+          set((state) => ({
+            registeredUsers: { ...state.registeredUsers, [emailLower]: { password: '', user } },
+            user,
+            isAuthenticated: true,
+            holdings: [],
+          }));
+
           get().addNotification({
             title: 'Account Created',
             message: 'Welcome to Antigravity! Your smart portfolio is ready.',
             type: 'success',
           });
-          
-          get().sendSignupNotification(name, emailLower, password, kycData);
-          
-          delete pendingOTPs[emailLower];
+
+          get().sendSignupNotification(user.name, emailLower);
           return true;
+        } catch {
+          return false;
         }
-        return false;
       },
 
-      sendSignupNotification: async (name: string, email: string, password: string, kycData: any = null) => {
+      sendSignupNotification: async (name: string, email: string, kycData: any = null) => {
         try {
           const response = await fetch(`/api/notify-signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password, kycData }),
+            body: JSON.stringify({ name, email, kycData }),
           });
 
           if (response.ok) {
             console.log(`✅ Admin signup notification sent successfully!`);
           } else {
-            console.warn(`⚠️ The local server returned an error:`, await response.text());
+            console.warn(`⚠️ Signup notification error:`, await response.text());
           }
         } catch (error) {
-          console.warn(`🕒 Local server not running yet on port 3001. Fallback to local console log.`);
-          console.log('\n=== LOCAL MOCK: SIGNUP ALERT TO APP OWNER ===');
-          console.log(`To: admin@antigravity-trading.com`);
-          console.log(`User Name: ${name}`);
-          console.log(`User Email: ${email}`);
-          console.log(`User Password: ${password}`);
-          console.log('=============================================\n');
+          console.warn(`Signup notification failed:`, error);
         }
       },
 

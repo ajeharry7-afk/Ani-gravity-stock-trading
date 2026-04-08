@@ -149,7 +149,7 @@ export function SignupForm() {
                 Welcome to Antigravity, {name}! Your portfolio is ready.
               </p>
               <Button
-                onClick={() => router.push('/login')}
+                onClick={() => router.push('/dashboard')}
                 className="w-full bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white font-medium tracking-wide border border-slate-600/50"
               >
                 Go to Dashboard

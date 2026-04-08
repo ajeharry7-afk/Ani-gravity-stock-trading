@@ -1,73 +1,36 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 
+const POLL_INTERVAL_MS = 10_000; // 10 seconds — Finnhub free tier allows 60 req/min
+
 export function useLivePrices() {
   const updatePrice = useAuthStore(state => state.updateMarketAndHoldingPrice);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const wsRef = useRef<WebSocket | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Only connect if the user is authenticated to avoid unnecessary bandwidth when logged out
     if (!isAuthenticated) return;
 
-    const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
-    if (!apiKey) {
-      console.warn('NEXT_PUBLIC_FINNHUB_API_KEY is missing in your .env.local file. Real-time prices will not update.');
-      return;
-    }
-
-    const ws = new WebSocket(`wss://ws.finnhub.io?token=${apiKey}`);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('✅ Connected to Finnhub WebSocket Live Market Data');
-      
-      // We read the listings straight from the store without tracking it as a reactive dependency.
-      // If we tracked it, the WebSocket would forcefully close and reconnect every single time a price changed!
+    const fetchPrices = async () => {
       const listings = useAuthStore.getState().marketListings;
-      
-      listings.forEach(listing => {
-        // Subscribe to all standard US stocks. 
-        ws.send(JSON.stringify({ type: 'subscribe', symbol: listing.symbol }));
-      });
-    };
+      const symbols = listings.map(l => l.symbol).join(',');
+      if (!symbols) return;
 
-    ws.onmessage = (event) => {
       try {
-        const response = JSON.parse(event.data);
-        
-        // Finnhub trade event payload pushes { type: 'trade', data: [{ p: price, s: symbol, v: volume }] }
-        if (response.type === 'trade' && Array.isArray(response.data)) {
-          response.data.forEach((trade: any) => {
-            if (trade.s && typeof trade.p === 'number') {
-              // Push the live price instantly into our Zustand global state,
-              // which automatically renders the new price everywhere on the screen instantaneously!
-              updatePrice(trade.s, trade.p);
-            }
-          });
-        }
-      } catch (err) {
-        // Silently ignore parse errors so we don't spam the console if Finnhub sends ping metadata
+        const res = await fetch(`/api/live-prices?symbols=${encodeURIComponent(symbols)}`);
+        if (!res.ok) return;
+        const prices: { symbol: string; price: number }[] = await res.json();
+        prices.forEach(({ symbol, price }) => updatePrice(symbol, price));
+      } catch {
+        // Non-critical — stale prices are acceptable
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('Finnhub WebSocket Error:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('🔄 Disconnected from Finnhub WebSocket');
-    };
+    fetchPrices(); // immediate first fetch
+    intervalRef.current = setInterval(fetchPrices, POLL_INTERVAL_MS);
 
     return () => {
-      // Cleanup the connection when the user logs out or leaves the page
-      if (ws.readyState === WebSocket.OPEN) {
-        const listings = useAuthStore.getState().marketListings;
-        listings.forEach(listing => {
-          ws.send(JSON.stringify({ type: 'unsubscribe', symbol: listing.symbol }));
-        });
-        ws.close();
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isAuthenticated, updatePrice]);
 }

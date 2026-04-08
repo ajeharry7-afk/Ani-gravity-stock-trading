@@ -77,6 +77,24 @@ create trigger on_users_updated
   before update on public.users
   for each row execute function public.handle_updated_at();
 
+-- OTP tokens (server-side OTP storage, one record per email+type)
+create table if not exists public.otp_tokens (
+  email        text not null,
+  type         text not null,   -- 'login' | 'signup'
+  otp_hash     text not null,
+  expires_at   timestamptz not null,
+  data         jsonb,           -- stores pending signup payload
+  created_at   timestamptz default now(),
+  primary key (email, type)
+);
+
+-- Row Level Security
+alter table public.otp_tokens enable row level security;
+
+drop policy if exists "Service role full access to otp_tokens" on public.otp_tokens;
+create policy "Service role full access to otp_tokens"
+  on public.otp_tokens for all using (true) with check (true);
+
 -- Row Level Security
 alter table public.users enable row level security;
 alter table public.holdings enable row level security;

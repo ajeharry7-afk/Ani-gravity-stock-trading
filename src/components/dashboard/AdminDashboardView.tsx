@@ -33,7 +33,8 @@ const calcPortfolioValue = (u: any) =>
 type FilterType = 'all' | 'pending' | 'has_balance' | 'blocked';
 
 export function AdminDashboardView() {
-  const { marketListings, updateMarketAndHoldingPrice } = useAuthStore();
+  const { marketListings, updateMarketAndHoldingPrice, user: adminUser } = useAuthStore();
+  const adminEmail = adminUser?.email ?? '';
 
   // ── Users state ────────────────────────────────────────────────────────────
   const [users, setUsers] = useState<any[]>([]);
@@ -74,7 +75,7 @@ export function AdminDashboardView() {
   // ── Fetch users ────────────────────────────────────────────────────────────
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch(`/api/users?requester=${encodeURIComponent(adminEmail)}`);
       if (res.ok) {
         const list = await res.json();
         list.sort((a: any, b: any) =>
@@ -91,15 +92,6 @@ export function AdminDashboardView() {
   };
 
   useEffect(() => {
-    // Sync locally registered users into Supabase
-    const localUsers = Object.values(useAuthStore.getState().registeredUsers || {});
-    localUsers.forEach((u: any) => {
-      fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...u, email: u.user?.email || u.email || 'unknown' }),
-      }).catch(() => {});
-    });
     fetchUsers();
     const interval = setInterval(fetchUsers, 5000);
     return () => clearInterval(interval);
@@ -210,6 +202,7 @@ export function AdminDashboardView() {
           title: msgTitle.trim(),
           message: msgBody.trim(),
           type: msgType,
+          adminEmail,
         }),
       });
       setMsgSent(true);
@@ -263,7 +256,7 @@ export function AdminDashboardView() {
       await fetch(`/api/users/${encodeURIComponent(selectedUser.email)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocked: newBlocked }),
+        body: JSON.stringify({ blocked: newBlocked, adminEmail }),
       });
 
       if (newBlocked) {
@@ -275,6 +268,7 @@ export function AdminDashboardView() {
             title: 'Account Suspended',
             message: 'Your account has been suspended by an administrator. Please contact support for more information.',
             type: 'warning',
+            adminEmail,
           }),
         });
       }
@@ -318,7 +312,7 @@ export function AdminDashboardView() {
     await fetch('/api/market-prices', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, price }),
+      body: JSON.stringify({ symbol, price, adminEmail }),
     });
     updateMarketAndHoldingPrice(symbol, price);
     setSavedPrices((prev) => ({ ...prev, [symbol]: true }));

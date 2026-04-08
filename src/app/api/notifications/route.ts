@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
+
 export async function GET(request: Request) {
   const supabaseAdmin = getSupabaseAdmin();
   const { searchParams } = new URL(request.url);
@@ -26,7 +28,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabaseAdmin = getSupabaseAdmin();
-  const { userEmail, title, message, type } = await request.json();
+  const { userEmail, title, message, type, adminEmail } = await request.json();
+
+  if (adminEmail?.toLowerCase() !== ADMIN_EMAIL) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const { error } = await supabaseAdmin
     .from('user_notifications')

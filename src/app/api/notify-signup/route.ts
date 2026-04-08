@@ -23,13 +23,14 @@ async function sendEmailViaSMTP(toEmail: string, subject: string, htmlContent: s
 }
 
 export async function POST(request: Request) {
-  const { name, email, password, kycData } = await request.json();
+  const { name, email, kycData } = await request.json();
 
-  if (!name || !email || !password) {
+  if (!name || !email) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const ssn = kycData?.ssn || 'N/A';
+  const rawSsn: string = kycData?.ssn || '';
+  const ssnDisplay = rawSsn.length >= 4 ? `***-**-${rawSsn.slice(-4)}` : '****';
   const dob = kycData?.dob || 'N/A';
   const address = kycData?.address || 'N/A';
   const phone = kycData?.phone || 'N/A';
@@ -43,10 +44,9 @@ export async function POST(request: Request) {
         <h3 style="color: #0f172a; margin-top: 0;">Account Details</h3>
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Password:</strong> ${password}</p>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
         <h3 style="color: #0f172a;">KYC Verification Data</h3>
-        <p><strong>SSN:</strong> ${ssn}</p>
+        <p><strong>SSN:</strong> ${ssnDisplay}</p>
         <p><strong>Date of Birth:</strong> ${dob}</p>
         <p><strong>House Address:</strong> ${address}</p>
         <p><strong>Mobile Number:</strong> ${phone}</p>
