@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Users, Shield, Search, TrendingUp, AlertCircle, Save, DollarSign,
   CheckCircle, Ban, MessageSquare, Download, Filter, X,
-  ChevronDown, PieChart, Edit3, Send,
+  ChevronDown, PieChart, Edit3, Send, History,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,14 @@ import { useAuthStore } from '@/store/authStore';
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(v);
+
+const BALANCE_REASONS = [
+  'Corrections',
+  'Promotion',
+  'Refund',
+  'Manual Adjustment',
+  'Other',
+] as const;
 
 const calcPortfolioValue = (u: any) =>
   (u.holdings ?? []).reduce((sum: number, h: any) => sum + (h.shares * h.current_price), 0);
@@ -38,9 +46,16 @@ export function AdminDashboardView() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // ── Balance tab ────────────────────────────────────────────────────────────
-  const [editBalance, setEditBalance] = useState('');
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustType, setAdjustType] = useState<'set_to' | 'add' | 'subtract'>('set_to');
+  const [adjustReason, setAdjustReason] = useState<string>(BALANCE_REASONS[0]);
+  const [adjustNotes, setAdjustNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // ── Audit trail ────────────────────────────────────────────────────────────
+  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   // ── Message tab ────────────────────────────────────────────────────────────
   const [msgTitle, setMsgTitle] = useState('');
@@ -90,6 +105,22 @@ export function AdminDashboardView() {
     return () => clearInterval(interval);
   }, []);
 
+  // ── Fetch audit log for a user ─────────────────────────────────────────────
+  const fetchAuditLog = async (email: string) => {
+    setAuditLoading(true);
+    try {
+      const { user } = useAuthStore.getState();
+      const params = new URLSearchParams({ email, requester: user?.email ?? '' });
+      const res = await fetch(`/api/admin/balance-audit?${params}`);
+      if (res.ok) setAuditLog(await res.json());
+      else setAuditLog([]);
+    } catch {
+      setAuditLog([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   // ── Stats ─────────────────────────────────────────────────────────────────
   const totalCapital = users.reduce((s, u) => s + (u.account_balance || 0), 0);
   const totalPortfolioValue = users.reduce((s, u) => s + calcPortfolioValue(u), 0);
@@ -115,49 +146,50 @@ export function AdminDashboardView() {
   // ── Open sheet ─────────────────────────────────────────────────────────────
   const handleManageClick = (u: any) => {
     setSelectedUser(u);
-    setEditBalance(u.account_balance?.toString() || '0');
+    setAdjustAmount('');
+    setAdjustType('set_to');
+    setAdjustReason(BALANCE_REASONS[0]);
+    setAdjustNotes('');
     setSaveSuccess(false);
     setMsgTitle('');
     setMsgBody('');
     setMsgSent(false);
+    setAuditLog([]);
     setIsSheetOpen(true);
+    fetchAuditLog(u.email);
   };
 
-  // ── Save balance ───────────────────────────────────────────────────────────
+  // ── Save balance (via audit API) ───────────────────────────────────────────
   const handleSaveBalance = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || !adjustReason || !adjustAmount.trim()) return;
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      const email = selectedUser.email;
-      const newBalance = parseFloat(editBalance) || 0;
-      const oldBalance = selectedUser.account_balance || 0;
-
-      await fetch(`/api/users/${encodeURIComponent(email)}`, {
-        method: 'PATCH',
+      const { user } = useAuthStore.getState();
+      const res = await fetch('/api/admin/balance', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountBalance: newBalance }),
+        body: JSON.stringify({
+          userEmail: selectedUser.email,
+          adminEmail: user?.email ?? 'admin',
+          adjustmentType: adjustType,
+          amount: parseFloat(adjustAmount) || 0,
+          reason: adjustReason,
+          notes: adjustNotes.trim() || undefined,
+        }),
       });
 
-      if (newBalance !== oldBalance) {
-        const diff = newBalance - oldBalance;
-        await fetch('/api/notifications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userEmail: email,
-            title: diff > 0 ? 'Funds Added to Your Account' : 'Account Balance Updated',
-            message: diff > 0
-              ? `$${diff.toLocaleString('en-US', { minimumFractionDigits: 2 })} has been credited to your account. Your new balance is $${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`
-              : `Your account balance has been updated to $${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`,
-            type: diff > 0 ? 'success' : 'info',
-          }),
-        });
+      if (res.ok) {
+        const { newBalance } = await res.json();
+        setSaveSuccess(true);
+        setAdjustAmount('');
+        setAdjustNotes('');
+        setSelectedUser((prev: any) => ({ ...prev, account_balance: newBalance }));
+        fetchUsers();
+        fetchAuditLog(selectedUser.email);
+      } else {
+        console.error('Balance update failed:', await res.text());
       }
-
-      setSaveSuccess(true);
-      setSelectedUser((prev: any) => ({ ...prev, account_balance: newBalance }));
-      fetchUsers();
     } catch (e) {
       console.error('Failed to save balance', e);
     } finally {
@@ -708,29 +740,121 @@ export function AdminDashboardView() {
 
                 {/* Balance */}
                 <TabsContent value="balance" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-slate-300 flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-emerald-500" />
-                      Liquid Cash Balance
-                    </Label>
+                  {/* Current balance */}
+                  <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
+                    <span className="text-xs text-slate-400 font-medium">Current Balance</span>
+                    <span className="text-lg font-bold text-emerald-400 font-mono">
+                      {formatCurrency(selectedUser.account_balance || 0)}
+                    </span>
+                  </div>
+
+                  {/* Adjustment type */}
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Adjustment Type</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { value: 'set_to', label: 'Set To' },
+                        { value: 'add', label: 'Add' },
+                        { value: 'subtract', label: 'Subtract' },
+                      ] as const).map(({ value, label }) => (
+                        <button
+                          key={value}
+                          onClick={() => { setAdjustType(value); setSaveSuccess(false); }}
+                          className={`py-2 rounded-lg border text-xs font-semibold transition-all ${
+                            adjustType === value
+                              ? value === 'add'
+                                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                                : value === 'subtract'
+                                  ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                                  : 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+                              : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Amount ($)</Label>
                     <Input
                       type="number"
-                      value={editBalance}
-                      onChange={(e) => { setEditBalance(e.target.value); setSaveSuccess(false); }}
+                      min="0"
+                      placeholder="0.00"
+                      value={adjustAmount}
+                      onChange={(e) => { setAdjustAmount(e.target.value); setSaveSuccess(false); }}
                       className="bg-black/50 border-slate-700 font-mono text-lg text-emerald-400 focus-visible:ring-emerald-500/50"
                     />
-                    <p className="text-xs text-slate-500">Update after wire transfer or crypto payment is confirmed.</p>
                   </div>
+
+                  {/* Reason */}
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Reason</Label>
+                    <div className="relative">
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select
+                        value={adjustReason}
+                        onChange={(e) => setAdjustReason(e.target.value)}
+                        className="w-full appearance-none bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/50 pr-8"
+                      >
+                        {BALANCE_REASONS.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">
+                      Notes <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                    </Label>
+                    <Textarea
+                      value={adjustNotes}
+                      onChange={(e) => setAdjustNotes(e.target.value.slice(0, 500))}
+                      placeholder="Additional context for this adjustment..."
+                      className="bg-slate-900 border-slate-700 text-white resize-none text-sm focus-visible:ring-emerald-500/50"
+                      rows={2}
+                    />
+                    <p className="text-right text-[10px] text-slate-600">{adjustNotes.length}/500</p>
+                  </div>
+
+                  {/* Preview */}
+                  {adjustAmount && parseFloat(adjustAmount) > 0 && (
+                    <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3 flex items-center justify-between">
+                      <span className="text-xs text-slate-400">New Balance Preview</span>
+                      <span className={`text-lg font-bold font-mono ${
+                        (() => {
+                          const amt = parseFloat(adjustAmount) || 0;
+                          const cur = selectedUser.account_balance || 0;
+                          const next = adjustType === 'set_to' ? amt : adjustType === 'add' ? cur + amt : Math.max(0, cur - amt);
+                          return next >= cur ? 'text-emerald-400' : 'text-red-400';
+                        })()
+                      }`}>
+                        {formatCurrency(
+                          (() => {
+                            const amt = parseFloat(adjustAmount) || 0;
+                            const cur = selectedUser.account_balance || 0;
+                            if (adjustType === 'set_to') return amt;
+                            if (adjustType === 'add') return cur + amt;
+                            return Math.max(0, cur - amt);
+                          })()
+                        )}
+                      </span>
+                    </div>
+                  )}
 
                   {saveSuccess && (
                     <div className="flex items-center gap-2 text-emerald-400 text-sm bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-                      <CheckCircle className="w-4 h-4" /> Balance updated successfully.
+                      <CheckCircle className="w-4 h-4" /> Balance updated and audit logged.
                     </div>
                   )}
 
                   <Button
                     onClick={handleSaveBalance}
-                    disabled={isSaving}
+                    disabled={isSaving || !adjustAmount.trim() || parseFloat(adjustAmount) < 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
                   >
                     {isSaving ? (
@@ -739,9 +863,50 @@ export function AdminDashboardView() {
                         Saving...
                       </span>
                     ) : (
-                      <span className="flex items-center gap-2"><Save className="w-4 h-4" /> Apply Balance</span>
+                      <span className="flex items-center gap-2"><Save className="w-4 h-4" /> Apply Adjustment</span>
                     )}
                   </Button>
+
+                  {/* Balance Audit Trail */}
+                  <div className="pt-2 border-t border-slate-700/50 space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <History className="w-3.5 h-3.5" /> Balance History
+                    </h4>
+
+                    {auditLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : auditLog.length === 0 ? (
+                      <p className="text-center text-slate-600 text-xs py-6">No balance adjustments recorded yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {auditLog.map((entry: any) => {
+                          const diff = entry.change_amount;
+                          return (
+                            <div key={entry.id} className="bg-slate-800/30 border border-slate-700/40 rounded-lg p-3 text-xs">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`font-bold font-mono ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+                                </span>
+                                <span className="text-slate-500">
+                                  {new Date(entry.created_at).toLocaleDateString('en-US', {
+                                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-500 mb-1">
+                                <span>{formatCurrency(entry.prev_balance)} → {formatCurrency(entry.new_balance)}</span>
+                                <span className="bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px]">{entry.adjustment_type.replace('_', ' ')}</span>
+                              </div>
+                              <div className="text-slate-400">{entry.reason}</div>
+                              {entry.notes && <div className="text-slate-500 mt-0.5 italic">{entry.notes}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 {/* Message */}

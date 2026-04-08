@@ -49,6 +49,20 @@ create table if not exists public.user_notifications (
   created_at  timestamptz default now()
 );
 
+-- Balance audit trail (all admin-initiated balance changes)
+create table if not exists public.balance_audit (
+  id               uuid primary key default gen_random_uuid(),
+  user_email       text references public.users(email) on delete cascade,
+  admin_email      text not null,
+  prev_balance     numeric not null default 0,
+  new_balance      numeric not null,
+  change_amount    numeric not null,
+  adjustment_type  text not null,   -- 'set_to' | 'add' | 'subtract'
+  reason           text not null,
+  notes            text,
+  created_at       timestamptz default now()
+);
+
 -- Auto-update updated_at on users
 create or replace function public.handle_updated_at()
 returns trigger as $$
@@ -74,6 +88,7 @@ drop policy if exists "Service role full access to users" on public.users;
 drop policy if exists "Service role full access to holdings" on public.holdings;
 drop policy if exists "Service role full access to notifications" on public.user_notifications;
 drop policy if exists "Service role full access to market prices" on public.market_price_overrides;
+drop policy if exists "Service role full access to balance audit" on public.balance_audit;
 
 -- Recreate policies
 create policy "Service role full access to users"
@@ -87,3 +102,8 @@ create policy "Service role full access to notifications"
 
 create policy "Service role full access to market prices"
   on public.market_price_overrides for all using (true) with check (true);
+
+alter table public.balance_audit enable row level security;
+
+create policy "Service role full access to balance audit"
+  on public.balance_audit for all using (true) with check (true);
