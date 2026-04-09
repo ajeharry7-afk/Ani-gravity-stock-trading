@@ -10,10 +10,9 @@ export function useLivePrices() {
     // Only connect if the user is authenticated to avoid unnecessary bandwidth when logged out
     if (!isAuthenticated) return;
 
-    // Vite exposes env variables through import.meta.env
-    const apiKey = import.meta.env.VITE_FINNHUB_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
     if (!apiKey) {
-      console.warn('VITE_FINNHUB_API_KEY is missing in your .env file. Real-time prices will not update.');
+      console.warn('NEXT_PUBLIC_FINNHUB_API_KEY is missing in your .env.local file. Real-time prices will not update.');
       return;
     }
 

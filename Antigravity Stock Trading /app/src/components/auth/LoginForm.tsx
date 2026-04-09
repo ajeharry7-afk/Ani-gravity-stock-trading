@@ -1,4 +1,7 @@
-import { useState } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,22 +11,36 @@ import { Eye, EyeOff, Mail, Lock, Check } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Logo } from '@/components/ui/Logo';
 
-interface LoginFormProps {
-  onSwitchToSignup: () => void;
-}
-
-export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
+export function LoginForm() {
+  const router = useRouter();
   const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
-  const [email, setEmail] = useState(() => localStorage.getItem('antigravity_email') || '');
-  const [password, setPassword] = useState(() => localStorage.getItem('antigravity_password') || '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('antigravity_email'));
+  const [rememberMe, setRememberMe] = useState(false);
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
+  const { isAuthenticated } = useAuthStore();
   const requestLoginOTP = useAuthStore((state) => state.requestLoginOTP);
   const verifyLoginOTP = useAuthStore((state) => state.verifyLoginOTP);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('antigravity_email') || '';
+    const savedPassword = localStorage.getItem('antigravity_password') || '';
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +245,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                   <p className="text-slate-400">
                     Don't have an account?{' '}
                     <button
-                      onClick={onSwitchToSignup}
+                      onClick={() => router.push('/signup')}
                       className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
                     >
                       Create one

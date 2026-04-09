@@ -1,4 +1,7 @@
+'use client';
+
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,10 +22,6 @@ import {
 } from 'lucide-react';
 import type { PaymentMethod } from '@/types';
 
-interface PaymentMethodViewProps {
-  onBack: () => void;
-  onComplete: () => void;
-}
 
 const paymentMethods = [
   {
@@ -71,7 +70,8 @@ const paymentMethods = [
   },
 ];
 
-export function PaymentMethodView({ onBack, onComplete }: PaymentMethodViewProps) {
+export function PaymentMethodView() {
+  const router = useRouter();
   const { pendingPurchase, completePurchaseWithPayment, user } = useAuthStore();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -95,7 +95,7 @@ export function PaymentMethodView({ onBack, onComplete }: PaymentMethodViewProps
     
     if (purchaseResult.success) {
       setTimeout(() => {
-        onComplete();
+        router.push('/portfolio');
       }, 3000);
     }
   };
@@ -107,7 +107,7 @@ export function PaymentMethodView({ onBack, onComplete }: PaymentMethodViewProps
           <AlertCircle className="w-12 h-12 text-slate-600 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">No Pending Purchase</h2>
           <p className="text-slate-400 mb-4">You don't have any pending purchases.</p>
-          <Button onClick={onBack} className="bg-emerald-500 hover:bg-emerald-600">
+          <Button onClick={() => router.push('/market')} className="bg-emerald-500 hover:bg-emerald-600">
             Go to Market
           </Button>
         </div>
@@ -141,7 +141,7 @@ export function PaymentMethodView({ onBack, onComplete }: PaymentMethodViewProps
               </p>
             </div>
           )}
-          <Button onClick={onComplete} className="bg-emerald-500 hover:bg-emerald-600">
+          <Button onClick={() => router.push('/portfolio')} className="bg-emerald-500 hover:bg-emerald-600">
             {result.success ? 'View Portfolio' : 'Try Again'}
           </Button>
         </div>
@@ -156,7 +156,7 @@ export function PaymentMethodView({ onBack, onComplete }: PaymentMethodViewProps
         <Button 
           variant="outline" 
           size="icon"
-          onClick={onBack}
+          onClick={() => router.push('/market')}
           className="border-slate-600 text-slate-300 hover:bg-slate-800"
         >
           <ArrowLeft className="w-5 h-5" />

@@ -1,4 +1,7 @@
+'use client';
+
 import { useAuthStore } from '@/store/authStore';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
@@ -16,11 +19,11 @@ import type { AppNotification } from '@/types';
 
 interface HeaderProps {
   onMenuClick?: () => void;
-  onViewChange?: (view: any) => void;
 }
 
-export function Header({ onMenuClick, onViewChange }: HeaderProps) {
+export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout, notifications, markNotificationsAsRead } = useAuthStore();
+  const router = useRouter();
   const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
 
   return (
@@ -118,8 +121,8 @@ export function Header({ onMenuClick, onViewChange }: HeaderProps) {
                 <p className="text-xs text-slate-400">{user?.email}</p>
               </div>
               <DropdownMenuSeparator className="bg-slate-700 sm:hidden" />
-              <DropdownMenuItem 
-                onClick={() => onViewChange && onViewChange('profile')}
+              <DropdownMenuItem
+                onClick={() => router.push('/profile')}
                 className="text-slate-300 hover:text-white hover:bg-slate-700 cursor-pointer"
               >
                 <Settings className="w-4 h-4 mr-2" />

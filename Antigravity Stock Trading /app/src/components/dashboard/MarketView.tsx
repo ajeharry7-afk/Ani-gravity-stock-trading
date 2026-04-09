@@ -1,4 +1,7 @@
+'use client';
+
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,11 +21,8 @@ import {
   Filter
 } from 'lucide-react';
 
-interface MarketViewProps {
-  onGoToPayment: () => void;
-}
-
-export function MarketView({ onGoToPayment }: MarketViewProps) {
+export function MarketView() {
+  const router = useRouter();
   const { marketListings, setPendingPurchase, getPortfolio } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSector, setSelectedSector] = useState('all');
@@ -94,7 +94,7 @@ export function MarketView({ onGoToPayment }: MarketViewProps) {
     setPurchaseDialog({ isOpen: false, stock: null });
     setSharesToBuy(1);
     setJointHolderName('');
-    onGoToPayment();
+    router.push('/payment');
   };
 
   const totalPurchaseCost = purchaseDialog.stock 

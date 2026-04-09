@@ -1,3 +1,5 @@
+'use client';
+
 import { useAuthStore } from '@/store/authStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -176,11 +178,18 @@ export function PortfolioView() {
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {holdings.map((holding) => (
-              <HoldingCard key={holding.id} holding={holding} />
-            ))}
-          </div>
+          {holdings.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">No holdings yet — buy your first stock in the Market.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {holdings.map((holding) => (
+                <HoldingCard key={holding.id} holding={holding} />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="individual" className="mt-6">

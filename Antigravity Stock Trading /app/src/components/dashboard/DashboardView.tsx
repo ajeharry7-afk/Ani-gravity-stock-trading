@@ -1,44 +1,65 @@
+'use client';
+
 import { useAuthStore } from '@/store/authStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, DollarSign, PieChart, Activity, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, PieChart, Activity, ArrowUpRight, Wallet } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-// Mock portfolio performance data
-const performanceData = [
-  { month: 'Jan', value: 28500 },
-  { month: 'Feb', value: 29200 },
-  { month: 'Mar', value: 28800 },
-  { month: 'Apr', value: 30100 },
-  { month: 'May', value: 31500 },
-  { month: 'Jun', value: 32847 },
-];
-
-// Top performing stocks
-const topStocks = [
-  { symbol: 'NVDA', name: 'NVIDIA', change: 47.8, price: 177.39 },
-  { symbol: 'TSLA', name: 'Tesla', change: 44.2, price: 360.59 },
-  { symbol: 'AAPL', name: 'Apple', change: 41.8, price: 255.92 },
-];
+import { useMemo } from 'react';
 
 export function DashboardView() {
-  const { getPortfolio, user } = useAuthStore();
+  const { getPortfolio, user, holdings } = useAuthStore();
   const portfolio = getPortfolio();
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value);
 
-  const formatPercentage = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
+  // Build performance chart from actual holdings purchase cost vs current value over time
+  const performanceData = useMemo(() => {
+    if (holdings.length === 0) return [];
+    const sorted = [...holdings].sort(
+      (a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime()
+    );
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const byMonth: Record<string, number> = {};
+    let runningValue = 0;
+    sorted.forEach((h) => {
+      const d = new Date(h.purchaseDate);
+      const key = `${months[d.getMonth()]} ${d.getFullYear()}`;
+      runningValue += h.shares * h.currentPrice;
+      byMonth[key] = runningValue;
+    });
+    return Object.entries(byMonth).map(([month, value]) => ({ month, value }));
+  }, [holdings]);
+
+  // Top performers from actual holdings sorted by gain %
+  const topPerformers = useMemo(() => {
+    return [...holdings]
+      .map((h) => ({
+        symbol: h.symbol,
+        name: h.companyName,
+        price: h.currentPrice,
+        change: ((h.currentPrice - h.purchasePrice) / h.purchasePrice) * 100,
+      }))
+      .sort((a, b) => b.change - a.change)
+      .slice(0, 3);
+  }, [holdings]);
+
+  // Best performer
+  const bestPerformer = topPerformers[0] ?? null;
+
+  // Largest holding by value
+  const largestHolding = useMemo(() => {
+    return [...holdings].sort((a, b) => b.shares * b.currentPrice - a.shares * a.currentPrice)[0] ?? null;
+  }, [holdings]);
+
+  // Sector diversity
+  const uniqueSectors = useMemo(() => holdings.length, [holdings]);
+
+  const hasHoldings = holdings.length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
+      {/* Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name?.split(' ')[0] || 'Investor'}!</h2>
@@ -50,7 +71,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* Portfolio Overview Cards */}
+      {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -62,17 +83,25 @@ export function DashboardView() {
           <CardContent>
             <div className="text-2xl font-bold text-white">{formatCurrency(portfolio.totalValue)}</div>
             <div className="flex items-center gap-1 mt-1">
-              <ArrowUpRight className="w-3 h-3 text-emerald-400" />
-              <span className="text-sm text-emerald-400">+{formatPercentage(portfolio.totalGainLossPercent)}</span>
+              {portfolio.totalGainLoss >= 0
+                ? <ArrowUpRight className="w-3 h-3 text-emerald-400" />
+                : <TrendingDown className="w-3 h-3 text-red-400" />
+              }
+              <span className={`text-sm ${portfolio.totalGainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {portfolio.totalGainLoss >= 0 ? '+' : ''}{portfolio.totalGainLossPercent.toFixed(2)}% all time
+              </span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">Total Gain/Loss</CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <CardTitle className="text-sm font-medium text-slate-400">Total Gain / Loss</CardTitle>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${portfolio.totalGainLoss >= 0 ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+              {portfolio.totalGainLoss >= 0
+                ? <TrendingUp className="w-4 h-4 text-emerald-400" />
+                : <TrendingDown className="w-4 h-4 text-red-400" />
+              }
             </div>
           </CardHeader>
           <CardContent>
@@ -95,96 +124,102 @@ export function DashboardView() {
           <CardContent>
             <div className="text-2xl font-bold text-white">{portfolio.holdings.length}</div>
             <div className="flex items-center gap-1 mt-1">
-              <span className="text-sm text-slate-400">Stocks owned</span>
+              <span className="text-sm text-slate-400">
+                {portfolio.holdings.length === 1 ? 'Stock owned' : 'Stocks owned'}
+              </span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">Day's Change</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-400">Cash Balance</CardTitle>
             <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Activity className="w-4 h-4 text-blue-400" />
+              <Wallet className="w-4 h-4 text-blue-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-400">+1.24%</div>
+            <div className="text-2xl font-bold text-white">
+              {formatCurrency(user?.accountBalance ?? 0)}
+            </div>
             <div className="flex items-center gap-1 mt-1">
-              <span className="text-sm text-slate-400">+$405.20 today</span>
+              <span className="text-sm text-slate-400">Available to invest</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Section */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Portfolio Performance Chart */}
         <Card className="lg:col-span-2 bg-slate-800/50 border-slate-700/50 backdrop-blur">
           <CardHeader>
             <CardTitle className="text-white">Portfolio Performance</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={performanceData}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="month" stroke="#64748b" />
-                  <YAxis stroke="#64748b" tickFormatter={(value) => `$${value/1000}k`} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1e293b', 
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#fff'
-                    }}
-                    formatter={(value: number) => [formatCurrency(value), 'Value']}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#10b981" 
-                    fillOpacity={1} 
-                    fill="url(#colorValue)" 
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {!hasHoldings ? (
+                <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                  No holdings yet — buy your first stock to see performance.
+                </div>
+              ) : performanceData.length < 2 ? (
+                <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                  Chart appears after purchases across multiple months.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={performanceData}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="month" stroke="#64748b" />
+                    <YAxis stroke="#64748b" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
+                      formatter={(value: number) => [formatCurrency(value), 'Value']}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Top Performers */}
         <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur">
           <CardHeader>
             <CardTitle className="text-white">Top Performers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {topStocks.map((stock) => (
-                <div 
-                  key={stock.symbol}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50"
-                >
-                  <div>
-                    <p className="font-semibold text-white">{stock.symbol}</p>
-                    <p className="text-sm text-slate-400">{stock.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-white">${stock.price}</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3 text-emerald-400" />
-                      <span className="text-sm text-emerald-400">+{stock.change}%</span>
+            {topPerformers.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-8">No holdings yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {topPerformers.map((stock) => (
+                  <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                    <div>
+                      <p className="font-semibold text-white">{stock.symbol}</p>
+                      <p className="text-sm text-slate-400 truncate max-w-[120px]">{stock.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-white">{formatCurrency(stock.price)}</p>
+                      <div className="flex items-center gap-1 justify-end">
+                        {stock.change >= 0
+                          ? <TrendingUp className="w-3 h-3 text-emerald-400" />
+                          : <TrendingDown className="w-3 h-3 text-red-400" />
+                        }
+                        <span className={`text-sm ${stock.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}%
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -198,8 +233,16 @@ export function DashboardView() {
             </div>
             <div>
               <p className="text-sm text-slate-400">Best Performer</p>
-              <p className="font-semibold text-white">NVIDIA (NVDA)</p>
-              <p className="text-sm text-emerald-400">+47.8%</p>
+              {bestPerformer ? (
+                <>
+                  <p className="font-semibold text-white">{bestPerformer.name} ({bestPerformer.symbol})</p>
+                  <p className={`text-sm ${bestPerformer.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {bestPerformer.change >= 0 ? '+' : ''}{bestPerformer.change.toFixed(2)}%
+                  </p>
+                </>
+              ) : (
+                <p className="font-semibold text-slate-500">No holdings yet</p>
+              )}
             </div>
           </div>
         </div>
@@ -211,8 +254,14 @@ export function DashboardView() {
             </div>
             <div>
               <p className="text-sm text-slate-400">Largest Holding</p>
-              <p className="font-semibold text-white">Apple (AAPL)</p>
-              <p className="text-sm text-cyan-400">50 shares</p>
+              {largestHolding ? (
+                <>
+                  <p className="font-semibold text-white">{largestHolding.companyName.split(' ')[0]} ({largestHolding.symbol})</p>
+                  <p className="text-sm text-cyan-400">{largestHolding.shares} shares</p>
+                </>
+              ) : (
+                <p className="font-semibold text-slate-500">No holdings yet</p>
+              )}
             </div>
           </div>
         </div>
@@ -224,8 +273,8 @@ export function DashboardView() {
             </div>
             <div>
               <p className="text-sm text-slate-400">Portfolio Diversity</p>
-              <p className="font-semibold text-white">5 Companies</p>
-              <p className="text-sm text-purple-400">3 sectors</p>
+              <p className="font-semibold text-white">{uniqueSectors} {uniqueSectors === 1 ? 'Company' : 'Companies'}</p>
+              <p className="text-sm text-purple-400">{hasHoldings ? 'Diversified portfolio' : 'Start investing'}</p>
             </div>
           </div>
         </div>

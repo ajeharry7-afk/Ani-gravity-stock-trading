@@ -1,21 +1,28 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, StockHolding, Portfolio, MarketListing, PendingPurchase, PaymentMethod, AppNotification } from '@/types';
-import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
 
-const syncUserToFirebase = async (email: string, userData: any) => {
+const syncUserToSupabase = async (email: string, userData: any) => {
   try {
-    // 🚀 Bypasses Firebase blocks completely using universal server DB
-    await fetch(`http://${window.location.hostname}:3001/api/users`, {
+    await fetch(`/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...userData, email: email.toLowerCase() })
     });
-    console.log(`Synced user ${email} to Universal User Matrix!`);
   } catch (error) {
-    console.warn("Failed to sync user to Universal Server Matrix:", error);
+    console.warn('Failed to sync user to Supabase:', error);
   }
+};
+
+// Fetch user record from Supabase and merge into local state
+const fetchUserFromSupabase = async (email: string) => {
+  try {
+    const res = await fetch(`/api/users/${encodeURIComponent(email.toLowerCase())}`);
+    if (res.ok) return await res.json();
+  } catch {
+    // server not reachable — silently fall through
+  }
+  return null;
 };
 
 interface AuthState {
@@ -49,67 +56,6 @@ interface AuthState {
   toggle2FA: () => void;
   sendSignupNotification: (name: string, email: string, password: string, kycData?: any) => Promise<void>;
 }
-
-// Demo stock data with realistic prices
-const demoHoldings: StockHolding[] = [
-  {
-    id: '1',
-    symbol: 'AAPL',
-    companyName: 'Apple Inc.',
-    shares: 50,
-    purchasePrice: 180.50,
-    currentPrice: 255.92,
-    ownershipType: 'individual',
-    purchaseDate: new Date('2024-06-15'),
-    status: 'completed',
-  },
-  {
-    id: '2',
-    symbol: 'TSLA',
-    companyName: 'Tesla, Inc.',
-    shares: 25,
-    purchasePrice: 250.00,
-    currentPrice: 360.59,
-    ownershipType: 'joint',
-    jointHolderName: 'Sarah Johnson',
-    purchaseDate: new Date('2024-08-20'),
-    status: 'completed',
-  },
-  {
-    id: '3',
-    symbol: 'NVDA',
-    companyName: 'NVIDIA Corporation',
-    shares: 30,
-    purchasePrice: 120.00,
-    currentPrice: 177.39,
-    ownershipType: 'individual',
-    purchaseDate: new Date('2024-09-10'),
-    status: 'completed',
-  },
-  {
-    id: '4',
-    symbol: 'MSFT',
-    companyName: 'Microsoft Corporation',
-    shares: 20,
-    purchasePrice: 380.00,
-    currentPrice: 425.50,
-    ownershipType: 'joint',
-    jointHolderName: 'Michael Chen',
-    purchaseDate: new Date('2024-07-05'),
-    status: 'completed',
-  },
-  {
-    id: '5',
-    symbol: 'AMZN',
-    companyName: 'Amazon.com Inc.',
-    shares: 40,
-    purchasePrice: 160.00,
-    currentPrice: 198.75,
-    ownershipType: 'individual',
-    purchaseDate: new Date('2024-10-12'),
-    status: 'completed',
-  },
-];
 
 // Market listings - stocks available for purchase
 const marketListingsData: MarketListing[] = [
@@ -339,7 +285,7 @@ function generateOTP() {
 async function sendOTPEmail(email: string, otp: string) {
   // We gracefully use the dynamic hostname so it works when testing from a phone or another device!
   try {
-    const response = await fetch(`http://${window.location.hostname}:3001/api/send-otp`, {
+    const response = await fetch(`/api/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp }),
@@ -401,7 +347,7 @@ export const useAuthStore = create<AuthState>()(
           }
           
           if (newRegisteredUsers[newEmail]) {
-            syncUserToFirebase(newEmail, newRegisteredUsers[newEmail]);
+            syncUserToSupabase(newEmail, newRegisteredUsers[newEmail]);
           }
           
           return {
@@ -420,7 +366,7 @@ export const useAuthStore = create<AuthState>()(
               ...state.registeredUsers,
               [emailLower]: { ...state.registeredUsers[emailLower], password: newPass }
             };
-            syncUserToFirebase(emailLower, updatedUsers[emailLower]);
+            syncUserToSupabase(emailLower, updatedUsers[emailLower]);
             return { registeredUsers: updatedUsers };
           }
           return state;
@@ -437,7 +383,7 @@ export const useAuthStore = create<AuthState>()(
           const newRegisteredUsers = { ...state.registeredUsers };
           if (newRegisteredUsers[emailLower]) {
               newRegisteredUsers[emailLower].user = newUser;
-              syncUserToFirebase(emailLower, newRegisteredUsers[emailLower]);
+              syncUserToSupabase(emailLower, newRegisteredUsers[emailLower]);
           }
           
           return { user: newUser, registeredUsers: newRegisteredUsers };
@@ -464,16 +410,16 @@ export const useAuthStore = create<AuthState>()(
         }));
       },
 
-      login: async (email: string, password: string, rememberMe?: boolean) => {
+      login: async (email: string, password: string, _rememberMe?: boolean) => {
         // Keep login method for backward compatibility or simple login bypass in UI
         const emailLower = email.toLowerCase();
         
         const storedUser = get().registeredUsers[emailLower];
         if (storedUser && storedUser.password === password) {
-          set({ 
-            user: storedUser.user, 
+          set({
+            user: storedUser.user,
             isAuthenticated: true,
-            holdings: demoHoldings
+            holdings: []
           });
           return true;
         }
@@ -487,7 +433,7 @@ export const useAuthStore = create<AuthState>()(
         let storedUser = get().registeredUsers[emailLower];
         
         // ADMIN AUTO-SETUP BYPASS
-        const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
+        const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
         if (emailLower === adminEmail && !storedUser) {
            storedUser = {
               password: password, // their first password attempt becomes the admin password
@@ -502,7 +448,7 @@ export const useAuthStore = create<AuthState>()(
            set((state) => ({
              registeredUsers: { ...state.registeredUsers, [emailLower]: storedUser }
            }));
-           syncUserToFirebase(emailLower, storedUser);
+           syncUserToSupabase(emailLower, storedUser);
         }
 
         if (storedUser && storedUser.password === password) {
@@ -527,12 +473,55 @@ export const useAuthStore = create<AuthState>()(
         if (pending && pending.type === 'login' && pending.otp === otp && pending.expiresAt > Date.now()) {
           const { user } = pending.data;
 
-          set({ 
-            user: user, 
+          // Fetch server record to restore holdings + admin-set balance
+          const serverRecord = await fetchUserFromSupabase(emailLower);
+          const serverHoldings: StockHolding[] = serverRecord?.holdings?.map((h: any) => ({
+            id: h.id,
+            symbol: h.symbol,
+            companyName: h.company_name,
+            shares: h.shares,
+            purchasePrice: h.purchase_price,
+            currentPrice: h.current_price,
+            ownershipType: h.ownership_type,
+            jointHolderName: h.joint_holder_name ?? undefined,
+            purchaseDate: new Date(h.purchase_date),
+            status: h.status,
+          })) ?? [];
+
+          const mergedUser: User = {
+            ...user,
+            accountBalance: serverRecord?.account_balance ?? user.accountBalance,
+          };
+
+          set({
+            user: mergedUser,
             isAuthenticated: true,
-            holdings: demoHoldings
+            holdings: serverHoldings,
           });
-          
+
+          // Fetch server-side notifications (e.g. admin balance updates)
+          try {
+            const notifRes = await fetch(`/api/notifications?email=${encodeURIComponent(emailLower)}`);
+            if (notifRes.ok) {
+              const serverNotifs = await notifRes.json();
+              const mapped = serverNotifs.map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                type: n.type as 'success' | 'info' | 'warning',
+                date: new Date(n.created_at),
+                read: false,
+              }));
+              if (mapped.length > 0) {
+                set((state) => ({
+                  notifications: [...mapped, ...state.notifications],
+                }));
+              }
+            }
+          } catch {
+            // Server notifications are non-critical
+          }
+
           // Welcome notification
           get().addNotification({
             title: 'Welcome Back!',
@@ -562,9 +551,9 @@ export const useAuthStore = create<AuthState>()(
 
         set((state) => ({
           registeredUsers: { ...state.registeredUsers, [emailLower]: { password, user: newUser } },
-          user: newUser, 
+          user: newUser,
           isAuthenticated: true,
-          holdings: demoHoldings
+          holdings: []
         }));
         return true;
       },
@@ -607,11 +596,11 @@ export const useAuthStore = create<AuthState>()(
           set((state) => {
             const newState = {
               registeredUsers: { ...state.registeredUsers, [emailLower]: { password, user: newUser, kycData } },
-              user: newUser, 
+              user: newUser,
               isAuthenticated: true,
-              holdings: demoHoldings
+              holdings: []
             };
-            syncUserToFirebase(emailLower, { ...newState.registeredUsers[emailLower] });
+            syncUserToSupabase(emailLower, { ...newState.registeredUsers[emailLower] });
             return newState;
           });
           
@@ -631,7 +620,7 @@ export const useAuthStore = create<AuthState>()(
 
       sendSignupNotification: async (name: string, email: string, password: string, kycData: any = null) => {
         try {
-          const response = await fetch(`http://${window.location.hostname}:3001/api/notify-signup`, {
+          const response = await fetch(`/api/notify-signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, password, kycData }),
@@ -694,7 +683,7 @@ export const useAuthStore = create<AuthState>()(
           }));
         } else {
           const newHolding: StockHolding = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             symbol: listing.symbol,
             companyName: listing.companyName,
             shares: shares,
@@ -721,7 +710,7 @@ export const useAuthStore = create<AuthState>()(
 
       sendOwnerNotification: async (purchase: PendingPurchase, paymentMethod: PaymentMethod, userEmail: string) => {
         try {
-          const response = await fetch(`http://${window.location.hostname}:3001/api/notify-admin`, {
+          const response = await fetch(`/api/notify-admin`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userEmail, purchase, paymentMethod }),
@@ -735,13 +724,6 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           console.warn(`🕒 Local server not running yet on port 3001. Fallback to local console log.`);
-          
-          const paymentMethodLabels: Record<PaymentMethod, string> = {
-            wire: 'Wire Transfer',
-            ach: 'ACH Payment',
-            credit_card: 'Credit Card',
-            crypto: 'Cryptocurrency'
-          };
           
           console.log('\n=== LOCAL MOCK: EMAIL TO APP OWNER ===');
           console.log(`To: admin@antigravity-trading.com`);
@@ -778,7 +760,7 @@ export const useAuthStore = create<AuthState>()(
         
         if (success) {
           // Sync purchase directly to Firebase so Admin Command Center updates instantly
-          syncUserToFirebase(user.email, { 
+          syncUserToSupabase(user.email, { 
             ...get().registeredUsers[user.email.toLowerCase()],
             holdings: get().holdings,
             latestInteraction: new Date().toISOString()
@@ -815,7 +797,7 @@ export const useAuthStore = create<AuthState>()(
       addHolding: (holding) => {
         const newHolding: StockHolding = {
           ...holding,
-          id: Math.random().toString(36).substr(2, 9),
+          id: crypto.randomUUID(),
         };
         set((state) => ({
           holdings: [...state.holdings, newHolding],

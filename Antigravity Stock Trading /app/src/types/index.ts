@@ -13,6 +13,7 @@ export interface User {
   name: string;
   createdAt: Date;
   twoFactorEnabled?: boolean;
+  accountBalance?: number;
 }
 
 export interface StockHolding {

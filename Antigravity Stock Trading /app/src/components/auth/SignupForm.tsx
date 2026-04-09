@@ -1,4 +1,7 @@
+'use client';
+
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,11 +12,9 @@ import { Eye, EyeOff, Mail, Lock, User, CheckCircle } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Logo } from '@/components/ui/Logo';
 
-interface SignupFormProps {
-  onSwitchToLogin: () => void;
-}
-
-export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
+export function SignupForm() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuthStore();
   const [step, setStep] = useState<'details' | 'kyc' | 'otp'>('details');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,6 +38,12 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   
   const requestSignupOTP = useAuthStore((state) => state.requestSignupOTP);
   const verifySignupOTP = useAuthStore((state) => state.verifySignupOTP);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     if (step === 'kyc') {
@@ -142,7 +149,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 Welcome to Antigravity, {name}! Your portfolio is ready.
               </p>
               <Button
-                onClick={onSwitchToLogin}
+                onClick={() => router.push('/login')}
                 className="w-full bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white font-medium tracking-wide border border-slate-600/50"
               >
                 Go to Dashboard
@@ -441,7 +448,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 <p className="text-slate-400">
                   Already have an account?{' '}
                   <button
-                    onClick={onSwitchToLogin}
+                    onClick={() => router.push('/login')}
                     className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
                   >
                     Sign in

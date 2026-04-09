@@ -1,9 +1,12 @@
+'use client';
+
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  PieChart, 
-  TrendingUp, 
-  User, 
+import {
+  LayoutDashboard,
+  PieChart,
+  TrendingUp,
+  TrendingDown,
+  User,
   X,
   Wallet,
   LineChart,
@@ -11,10 +14,9 @@ import {
   Shield
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface SidebarProps {
-  currentView: string;
-  onViewChange: (view: 'dashboard' | 'portfolio' | 'market' | 'payment' | 'projections' | 'profile') => void;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -27,22 +29,30 @@ const navItems = [
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
-export function Sidebar({ currentView, onViewChange, isOpen, onClose }: SidebarProps) {
-  const { user } = useAuthStore();
-  const isAdmin = user?.email.toLowerCase() === (import.meta.env.VITE_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { user, getPortfolio } = useAuthStore();
+  const router = useRouter();
+  const pathname = usePathname();
+  const portfolio = getPortfolio();
+  const isAdmin = user?.email.toLowerCase() === (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
+
+  const handleNavigate = (id: string) => {
+    router.push(`/${id}`);
+    onClose();
+  };
 
   return (
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={cn(
           "fixed lg:sticky top-16 left-0 z-50 w-64 h-[calc(100vh-4rem)] bg-[#0C121A] border-r border-[#16202D] transition-transform duration-300 lg:translate-x-0 relative overflow-hidden",
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -53,7 +63,7 @@ export function Sidebar({ currentView, onViewChange, isOpen, onClose }: SidebarP
           {/* Mobile close button */}
           <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-700/50">
             <span className="text-lg font-semibold text-white">Menu</span>
-            <button 
+            <button
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
             >
@@ -65,19 +75,16 @@ export function Sidebar({ currentView, onViewChange, isOpen, onClose }: SidebarP
           <nav className="flex-1 p-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentView === item.id;
-              
+              const isActive = pathname === `/${item.id}`;
+
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    onViewChange(item.id as any);
-                    onClose();
-                  }}
+                  onClick={() => handleNavigate(item.id)}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
-                    isActive 
-                      ? "bg-slate-800/50 text-cyan-400 border border-cyan-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
+                    isActive
+                      ? "bg-slate-800/50 text-cyan-400 border border-cyan-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
                       : "text-slate-400 hover:bg-[#121A25] hover:text-slate-200"
                   )}
                 >
@@ -92,24 +99,21 @@ export function Sidebar({ currentView, onViewChange, isOpen, onClose }: SidebarP
                 </button>
               );
             })}
-            
+
             {/* Conditional Admin Tab */}
             {isAdmin && (
               <button
-                onClick={() => {
-                  onViewChange('admin' as any);
-                  onClose();
-                }}
+                onClick={() => handleNavigate('admin')}
                 className={cn(
                   "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 mt-4",
-                  currentView === 'admin'
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
+                  pathname === '/admin'
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
                     : "text-slate-400 hover:bg-emerald-500/5 hover:text-emerald-400 border border-transparent"
                 )}
               >
                 <Shield className={cn(
                   "w-5 h-5",
-                  currentView === 'admin' && "text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]"
+                  pathname === '/admin' && "text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]"
                 )} />
                 <span className="font-medium">Admin Panel</span>
                 <div className="ml-auto flex items-center justify-center p-1 rounded-md bg-emerald-500/20">
@@ -126,11 +130,18 @@ export function Sidebar({ currentView, onViewChange, isOpen, onClose }: SidebarP
                 <Wallet className="w-4 h-4 text-cyan-400" />
                 <span className="text-sm border-0 font-medium text-slate-400">Total Portfolio</span>
               </div>
-              <p className="text-2xl font-light text-slate-100 relative z-10">$32,847.50</p>
+              <p className="text-2xl font-light text-slate-100 relative z-10">
+                ${portfolio.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
               <div className="flex items-center gap-1 mt-1 relative z-10">
-                <TrendingUp className="w-3 h-3 text-cyan-400" />
-                <span className="text-sm text-cyan-400">+12.4%</span>
-                <span className="text-xs text-slate-500">this month</span>
+                {portfolio.totalGainLoss >= 0
+                  ? <TrendingUp className="w-3 h-3 text-cyan-400" />
+                  : <TrendingDown className="w-3 h-3 text-red-400" />
+                }
+                <span className={`text-sm ${portfolio.totalGainLoss >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>
+                  {portfolio.totalGainLoss >= 0 ? '+' : ''}{portfolio.totalGainLossPercent.toFixed(2)}%
+                </span>
+                <span className="text-xs text-slate-500">all time</span>
               </div>
             </div>
           </div>
