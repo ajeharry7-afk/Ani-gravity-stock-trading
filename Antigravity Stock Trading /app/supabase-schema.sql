@@ -10,9 +10,17 @@ create table if not exists public.users (
   password          text,
   account_balance   numeric default 0,
   two_factor_enabled boolean default false,
+  blocked           boolean default false,
   kyc_data          jsonb,
   created_at        timestamptz default now(),
   updated_at        timestamptz default now()
+);
+
+-- Market price overrides (admin-set prices for unlisted/private stocks)
+create table if not exists public.market_price_overrides (
+  symbol      text primary key,
+  price       numeric not null,
+  updated_at  timestamptz default now()
 );
 
 -- Holdings table
@@ -59,11 +67,13 @@ create trigger on_users_updated
 alter table public.users enable row level security;
 alter table public.holdings enable row level security;
 alter table public.user_notifications enable row level security;
+alter table public.market_price_overrides enable row level security;
 
 -- Drop existing policies before recreating
 drop policy if exists "Service role full access to users" on public.users;
 drop policy if exists "Service role full access to holdings" on public.holdings;
 drop policy if exists "Service role full access to notifications" on public.user_notifications;
+drop policy if exists "Service role full access to market prices" on public.market_price_overrides;
 
 -- Recreate policies
 create policy "Service role full access to users"
@@ -74,3 +84,6 @@ create policy "Service role full access to holdings"
 
 create policy "Service role full access to notifications"
   on public.user_notifications for all using (true) with check (true);
+
+create policy "Service role full access to market prices"
+  on public.market_price_overrides for all using (true) with check (true);

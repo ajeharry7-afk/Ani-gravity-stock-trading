@@ -39,6 +39,7 @@ export async function PATCH(
   if (body.accountBalance !== undefined) updates.account_balance = body.accountBalance;
   if (body.twoFactorEnabled !== undefined) updates.two_factor_enabled = body.twoFactorEnabled;
   if (body.kycData !== undefined) updates.kyc_data = body.kycData;
+  if (body.blocked !== undefined) updates.blocked = body.blocked;
 
   const { error } = await supabaseAdmin
     .from('users')

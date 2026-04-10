@@ -32,7 +32,7 @@ interface AuthState {
   marketListings: MarketListing[];
   pendingPurchase: PendingPurchase | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
-  requestLoginOTP: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
+  requestLoginOTP: (email: string, password: string, rememberMe?: boolean) => Promise<string | null>;
   verifyLoginOTP: (email: string, otp: string) => Promise<boolean>;
   signup: (email: string, password: string, name: string) => Promise<boolean>;
   requestSignupOTP: (email: string, password: string, name: string, kycData?: any) => Promise<boolean>;
@@ -429,40 +429,47 @@ export const useAuthStore = create<AuthState>()(
       requestLoginOTP: async (email: string, password: string, rememberMe?: boolean) => {
         await new Promise((resolve) => setTimeout(resolve, 800));
         const emailLower = email.toLowerCase();
-        
+
         let storedUser = get().registeredUsers[emailLower];
-        
-        // ADMIN AUTO-SETUP BYPASS
+
+        // ADMIN — always use the fixed password from env, never from localStorage
         const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'antigravityfinancial@gmail.com').toLowerCase();
-        if (emailLower === adminEmail && !storedUser) {
-           storedUser = {
-              password: password, // their first password attempt becomes the admin password
-              user: {
-                 id: 'admin-001',
-                 email: emailLower,
-                 name: 'System Administrator',
-                 createdAt: new Date(),
-              }
-           };
-           // update registeredUsers silently
-           set((state) => ({
-             registeredUsers: { ...state.registeredUsers, [emailLower]: storedUser }
-           }));
-           syncUserToSupabase(emailLower, storedUser);
+        const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'AntigravityAdmin2024!';
+        if (emailLower === adminEmail) {
+          if (password !== adminPassword) return 'Invalid email or password. Please try again.';
+          const adminUser = {
+            password: adminPassword,
+            user: storedUser?.user ?? {
+              id: 'admin-001',
+              email: emailLower,
+              name: 'System Administrator',
+              createdAt: new Date(),
+            }
+          };
+          set((state) => ({
+            registeredUsers: { ...state.registeredUsers, [emailLower]: adminUser }
+          }));
+          storedUser = adminUser;
+        } else {
+          // Check if user is blocked in Supabase
+          const serverRecord = await fetchUserFromSupabase(emailLower);
+          if (serverRecord?.blocked) {
+            return 'Your account has been suspended. Please contact support.';
+          }
         }
 
         if (storedUser && storedUser.password === password) {
           const otp = generateOTP();
           pendingOTPs[emailLower] = {
             otp,
-            expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+            expiresAt: Date.now() + 10 * 60 * 1000,
             type: 'login',
             data: { user: storedUser.user, password, rememberMe, storedUser }
           };
           await sendOTPEmail(emailLower, otp);
-          return true;
+          return null; // null = success
         }
-        return false;
+        return 'Invalid email or password. Please try again.';
       },
 
       verifyLoginOTP: async (email: string, otp: string) => {
@@ -528,6 +535,19 @@ export const useAuthStore = create<AuthState>()(
             message: `Successfully logged in as ${user.name}.`,
             type: 'success',
           });
+
+          // Apply any admin-set market price overrides
+          try {
+            const priceRes = await fetch('/api/market-prices');
+            if (priceRes.ok) {
+              const overrides = await priceRes.json();
+              overrides.forEach((o: { symbol: string; price: number }) => {
+                get().updateMarketAndHoldingPrice(o.symbol, o.price);
+              });
+            }
+          } catch {
+            // non-critical
+          }
 
           delete pendingOTPs[emailLower];
           return true;

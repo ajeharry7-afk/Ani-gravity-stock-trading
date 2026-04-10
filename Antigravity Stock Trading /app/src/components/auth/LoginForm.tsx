@@ -61,9 +61,9 @@ export function LoginForm() {
       localStorage.removeItem('antigravity_password');
     }
 
-    const success = await requestLoginOTP(email, password, rememberMe);
-    if (!success) {
-      setError('Invalid email or password. Please try again.');
+    const errorMsg = await requestLoginOTP(email, password, rememberMe);
+    if (errorMsg) {
+      setError(errorMsg);
       setIsLoading(false);
     } else {
       setStep('otp');
