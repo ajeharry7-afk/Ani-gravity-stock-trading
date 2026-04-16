@@ -72,6 +72,11 @@ export function PortfolioView() {
                     Processing
                   </Badge>
                 )}
+                {holding.status === 'rejected' && (
+                  <Badge variant="outline" className="text-xs border-red-500/50 text-red-400 bg-red-500/10 whitespace-nowrap">
+                    Rejected
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-slate-400">{holding.companyName}</p>
               {holding.jointHolderName && (

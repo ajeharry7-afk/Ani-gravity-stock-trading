@@ -74,63 +74,141 @@
   }
 }
 
-/* Custom scrollbar */
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
-  background: #1e293b;
-}
+html.dark ::-webkit-scrollbar-track  { background: #1e293b; }
+html.dark ::-webkit-scrollbar-thumb  { background: #475569; border-radius: 4px; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
-}
+html:not(.dark) ::-webkit-scrollbar-track  { background: #f1f5f9; }
+html:not(.dark) ::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
+html:not(.dark) ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-}
-
-/* Smooth transitions */
+/* ─── Smooth transitions ─── */
 * {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
 
-/* Custom slider styles */
-[data-slot="slider-track"] {
-  background: #334155 !important;
-}
+/* ─── Slider styles ─── */
+html.dark [data-slot="slider-track"]  { background: #334155 !important; }
+html:not(.dark) [data-slot="slider-track"] { background: #e2e8f0 !important; }
+[data-slot="slider-range"]  { background: linear-gradient(to right, #10b981, #06b6d4) !important; }
+[data-slot="slider-thumb"]  { background: #10b981 !important; border: 2px solid #fff !important; }
 
-[data-slot="slider-range"] {
-  background: linear-gradient(to right, #10b981, #06b6d4) !important;
-}
+/* ─── Focus styles ─── */
+input:focus, button:focus { outline: none; }
 
-[data-slot="slider-thumb"] {
-  background: #10b981 !important;
-  border: 2px solid #fff !important;
-}
-
-/* Focus styles */
-input:focus,
-button:focus {
-  outline: none;
-}
-
-/* Glass effect */
-.glass {
+/* ─── Glass effect ─── */
+html.dark .glass {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+html:not(.dark) .glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
 
-/* Gradient text */
+/* ─── Gradient text ─── */
 .gradient-text {
   background: linear-gradient(to right, #10b981, #06b6d4);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Uses html:not(.dark) for higher specificity than utility classes.
+   Only affects dashboard/admin — auth pages use inline backgroundImage
+   which takes precedence over class-based background-color.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Page / layout backgrounds ── */
+html:not(.dark) .bg-slate-900      { background-color: #f8fafc !important; }
+html:not(.dark) .bg-slate-800      { background-color: #ffffff !important; }
+html:not(.dark) .bg-slate-700      { background-color: #f1f5f9 !important; }
+html:not(.dark) .bg-slate-600      { background-color: #e2e8f0 !important; }
+
+/* opacity variants */
+html:not(.dark) .bg-slate-900\/80  { background-color: rgba(255,255,255,0.95) !important; }
+html:not(.dark) .bg-slate-900\/40  { background-color: rgba(248,250,252,0.4) !important; }
+html:not(.dark) .bg-slate-800\/95  { background-color: rgba(255,255,255,0.98) !important; }
+html:not(.dark) .bg-slate-800\/50  { background-color: rgba(241,245,249,0.8) !important; }
+html:not(.dark) .bg-slate-800\/40  { background-color: rgba(241,245,249,0.7) !important; }
+html:not(.dark) .bg-slate-800\/30  { background-color: rgba(241,245,249,0.5) !important; }
+html:not(.dark) .bg-slate-700\/20  { background-color: rgba(226,232,240,0.4) !important; }
+html:not(.dark) .bg-slate-700\/50  { background-color: rgba(226,232,240,0.6) !important; }
+
+/* Hex backgrounds */
+html:not(.dark) .bg-\[\#0C121A\]   { background-color: #f8fafc !important; }
+html:not(.dark) .bg-\[\#0B1018\]   { background-color: #ffffff !important; }
+html:not(.dark) .bg-\[\#050D07\]   { background-color: #f8fafc !important; }
+html:not(.dark) .bg-\[\#060E08\]   { background-color: #f0fdf4 !important; }
+html:not(.dark) .bg-\[\#121A25\]   { background-color: #f1f5f9 !important; }
+html:not(.dark) .bg-\[\#1E293B\]   { background-color: #e8eef4 !important; }
+html:not(.dark) .bg-\[\#16202D\]   { background-color: #e2e8f0 !important; }
+
+/* ── Text colors ── */
+html:not(.dark) .text-white        { color: #0f172a !important; }
+html:not(.dark) .text-slate-100    { color: #1e293b !important; }
+html:not(.dark) .text-slate-200    { color: #334155 !important; }
+html:not(.dark) .text-slate-300    { color: #475569 !important; }
+html:not(.dark) .text-slate-400    { color: #64748b !important; }
+html:not(.dark) .text-slate-500    { color: #94a3b8 !important; }
+html:not(.dark) .text-slate-600    { color: #94a3b8 !important; }
+
+/* ── Border colors ── */
+html:not(.dark) .border-slate-800  { border-color: #e8eef4 !important; }
+html:not(.dark) .border-slate-700  { border-color: #e2e8f0 !important; }
+html:not(.dark) .border-slate-600  { border-color: #cbd5e1 !important; }
+
+/* opacity border variants */
+html:not(.dark) .border-slate-700\/50 { border-color: rgba(203,213,225,0.6) !important; }
+html:not(.dark) .border-slate-700\/30 { border-color: rgba(203,213,225,0.4) !important; }
+html:not(.dark) .border-slate-600\/50 { border-color: rgba(203,213,225,0.5) !important; }
+
+/* Hex borders */
+html:not(.dark) .border-\[\#16202D\]  { border-color: #e2e8f0 !important; }
+html:not(.dark) .border-\[\#1E293B\]  { border-color: #e8eef4 !important; }
+
+/* ── Hover backgrounds ── */
+html:not(.dark) .hover\:bg-slate-900:hover   { background-color: #f1f5f9 !important; }
+html:not(.dark) .hover\:bg-slate-800:hover   { background-color: #f1f5f9 !important; }
+html:not(.dark) .hover\:bg-slate-700:hover   { background-color: #e2e8f0 !important; }
+html:not(.dark) .hover\:bg-\[\#121A25\]:hover { background-color: #f1f5f9 !important; }
+html:not(.dark) .hover\:bg-slate-800\/50:hover { background-color: rgba(241,245,249,0.9) !important; }
+html:not(.dark) .hover\:bg-slate-800\/40:hover { background-color: rgba(241,245,249,0.8) !important; }
+
+/* ── Hover text colors ── */
+html:not(.dark) .hover\:text-white:hover      { color: #0f172a !important; }
+html:not(.dark) .hover\:text-slate-200:hover  { color: #334155 !important; }
+html:not(.dark) .hover\:text-slate-300:hover  { color: #475569 !important; }
+
+/* ── Focus states (dropdowns, etc.) ── */
+html:not(.dark) .focus\:bg-slate-700\/50:focus { background-color: rgba(226,232,240,0.5) !important; }
+
+/* ── Active / selected states (sidebar nav) ── */
+html:not(.dark) .bg-slate-800\/50.text-cyan-400 { background-color: rgba(236,254,255,0.7) !important; }
+
+/* ── Decorative gradient blurs (subdued in light mode) ── */
+html:not(.dark) .from-slate-800\/10 { --tw-gradient-from: rgba(241,245,249,0.1) !important; }
+
+/* ── Admin sidebar subtle green bg ── */
+html:not(.dark) .bg-emerald-900\/15 { background-color: rgba(209,250,229,0.15) !important; }
+
+/* ── Placeholder text ── */
+html:not(.dark) .placeholder\:text-slate-500::placeholder { color: #94a3b8 !important; }
+
+/* ── Shadows (soften dark shadows in light mode) ── */
+html:not(.dark) .shadow-lg { box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
+
+/* ── Backdrop blur panels ── */
+html:not(.dark) .backdrop-blur-xl { backdrop-filter: blur(16px) !important; }

@@ -13,7 +13,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, refreshHoldings } = useAuthStore();
   const router = useRouter();
 
   useLivePrices();
@@ -23,6 +23,13 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
+  // Poll for holdings status updates so approval/rejection by admin reflects immediately
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(refreshHoldings, 10000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, refreshHoldings]);
 
   if (!isAuthenticated) {
     return null;

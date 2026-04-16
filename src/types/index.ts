@@ -26,7 +26,7 @@ export interface StockHolding {
   ownershipType: 'individual' | 'joint';
   jointHolderName?: string;
   purchaseDate: Date;
-  status: 'processing' | 'completed';
+  status: 'processing' | 'completed' | 'rejected';
 }
 
 export interface Portfolio {

@@ -11,10 +11,11 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { User, LogOut, Settings, Bell, Menu } from 'lucide-react';
+import { User, LogOut, Settings, Bell, Menu, Sun, Moon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Logo } from '@/components/ui/Logo';
 import { useState } from 'react';
+import { useTheme } from '@/hooks/useTheme';
 import type { AppNotification } from '@/types';
 
 interface HeaderProps {
@@ -25,6 +26,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout, notifications, markNotificationsAsRead } = useAuthStore();
   const router = useRouter();
   const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
+  const { isDark, toggleTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl">
@@ -51,6 +53,18 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark
+              ? <Sun className="w-5 h-5 text-slate-400" />
+              : <Moon className="w-5 h-5 text-slate-400" />
+            }
+          </button>
+
           <DropdownMenu onOpenChange={(open) => { if (!open) markNotificationsAsRead(); }}>
             <DropdownMenuTrigger asChild>
               <button className="p-2 rounded-lg hover:bg-slate-800 transition-colors relative">

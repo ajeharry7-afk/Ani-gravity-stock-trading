@@ -45,6 +45,7 @@ interface AuthState {
   updatePassword: (currentPass: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
   toggle2FA: () => void;
   sendSignupNotification: (name: string, email: string, kycData?: any) => Promise<void>;
+  refreshHoldings: () => Promise<void>;
 }
 
 // Market listings - stocks available for purchase
@@ -753,6 +754,23 @@ export const useAuthStore = create<AuthState>()(
           totalGainLoss,
           totalGainLossPercent,
         };
+      },
+
+      refreshHoldings: async () => {
+        const { user } = get();
+        if (!user) return;
+        try {
+          const res = await fetch(`/api/holdings?email=${encodeURIComponent(user.email)}`);
+          if (!res.ok) return;
+          const rawHoldings = await res.json();
+          const holdings: StockHolding[] = rawHoldings.map((h: any) => ({
+            ...h,
+            purchaseDate: new Date(h.purchaseDate),
+          }));
+          set({ holdings });
+        } catch {
+          // non-critical
+        }
       },
     }),
     {
